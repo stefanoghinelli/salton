@@ -5,7 +5,9 @@ from whoosh.qparser import QueryParser
 from whoosh.fields import *
 
 
-srcFolder = '/home/massimiliano/UNI/Gestione_dell_informazione/thematic-search-engine/doc_tokens/'
+#srcFolder = '/home/massimiliano/UNI/Gestione_dell_informazione/thematic-search-engine/doc_tokens/'
+srcFolder = '../doc_tokens/'
+
 files = os.listdir(srcFolder)
 print(files)
 
