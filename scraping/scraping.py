@@ -50,7 +50,7 @@ def get_source1(pages):
         divs = content.xpath('//div[@id="textbook-list"]/div')
         for div in divs:
             div_intern = div.xpath("./div")[1]
-            filename = "documents/open-textbooks/" + div_intern.xpath('./h2/a/text()')[0] + ".pdf"
+            filename = "../documents/open-textbooks/" + div_intern.xpath('./h2/a/text()')[0] + ".pdf"
             url = div_intern.xpath('./h2/a')[0].get('href')
             print("Calling the URL:" + OPEN_TEXTBOOK_BASE_URL + url)
             content = get_content(OPEN_TEXTBOOK_BASE_URL + url)
@@ -62,7 +62,7 @@ def get_source1(pages):
                     final_pdf_url = OPEN_TEXTBOOK_BASE_URL + uri
                     print("Downloading from URL" + final_pdf_url)
                     download(final_pdf_url, filename)
-            break
+
 
 
 def get_source2(pages):
@@ -74,19 +74,22 @@ def get_source2(pages):
             div = li.xpath("./div")[1]
             url = div.xpath('./h2/a')[0].get('href')
             name = div.xpath('./h2/a')[0]
-            filename = "documents/springer/" + name.xpath('./text()')[0] + ".pdf"
+            filename = "../documents/springer/" + name.xpath('./text()')[0] + ".pdf"
             print("Calling the URL:" + SPRINGER_BASE_URL + url)
             content = get_content(SPRINGER_BASE_URL + url)
             div = content.xpath('//div[@id="sidebar"]/div')[0]
-            url = div.xpath('./div')[0].xpath('./div')[0].xpath('./a')[0].get('href')
-            # filename = content.xpath('//h1[@data-test="book-title"]/text()')[0].replace('\n', ' ')
-            if url.endswith('.pdf'):
-                final_pdf_url = url
-                print("Downloading from URL" + final_pdf_url)
-                download(final_pdf_url, filename)
-            break
+            # se l'elemento div recuperato in pagina è uguale a 0
+            # significa che non è presente il bottone del download PDF
+            if len(div) > 0:
+                url = div.xpath('./div')[0].xpath('./div')[0].xpath('./a')[0].get('href')
+                # filename = content.xpath('//h1[@data-test="book-title"]/text()')[0].replace('\n', ' ')
+                if url.endswith('.pdf'):
+                    final_pdf_url = url
+                    print("Downloading from URL" + final_pdf_url)
+                    download(final_pdf_url, filename)
+
 
 
 class CreateRepositories:
-    #get_source1(1)
-    get_source2(1)
+  #  get_source1(2)
+    get_source2(2)

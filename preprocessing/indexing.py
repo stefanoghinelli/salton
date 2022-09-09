@@ -1,44 +1,54 @@
 import os
-import sys
-from whoosh.index import create_in, open_dir
-from whoosh.qparser import QueryParser
+from whoosh.index import create_in
 from whoosh.fields import *
 
-
-#srcFolder = '/home/massimiliano/UNI/Gestione_dell_informazione/thematic-search-engine/doc_tokens/'
-srcFolder = '../doc_tokens/'
-
-files = os.listdir(srcFolder)
-print(files)
-
-if not files:
-    sys.exit("\'doc_tokens\' dir is empty cannot works")
+# srcFolder = '/home/massimiliano/UNI/Gestione_dell_informazione/thematic-search-engine/doc_tokens/'
+# srcFolder = '../doc_tokens/'
 
 
-"""
-Leggendo la documentazione, il campo TEXT usa uno 
-StandardAnalyzer di defualt che tokenizza il campo content,
-useremo quelli creati nella fase di pre-processing
-"""
-schema = Schema(title=TEXT(stored=True), path=ID(stored=True), content=TEXT)
+open_textbooks_src_folder = '../doc_tokens/open-textbooks/'
+open_textbooks_files = os.listdir(open_textbooks_src_folder)
+open_textbooks_dst_folder = '/open-textbooks/'
 
-if not os.path.exists("indexdir"):
-    os.mkdir("indexdir")
+springer_src_folder = '../doc_tokens/springer/'
+springer_files = os.listdir(springer_src_folder)
+springer_dst_folder = '/springer/'
 
-ix = create_in("indexdir", schema)
 
-writer = ix.writer()
+def create_index(files, srcFolder, dst_folder):
+    if not files:
+        sys.exit("\'doc_tokens\' dir is empty cannot works")
 
-for f_name in files:
-    try:
-        with open(srcFolder + f_name, 'r') as f:
-            tkns = f.read()
-    except FileNotFoundError:
-        print('File \'{0}\' does not exit.'.format(f_name))
-    f.close()
-    writer.add_document(title=f_name[:-4], content=tkns)
+    """
+    Leggendo la documentazione, il campo TEXT usa uno 
+    StandardAnalyzer di defualt che tokenizza il campo content,
+    useremo quelli creati nella fase di pre-processing
+    """
+    schema = Schema(title=TEXT(stored=True), path=ID(stored=True), content=TEXT)
 
-writer.commit()
+    if not os.path.exists("indexdir" + dst_folder):
+        os.mkdir("indexdir" + dst_folder)
+
+    ix = create_in("indexdir" + dst_folder, schema)
+
+    writer = ix.writer()
+
+    for f_name in files:
+        try:
+            with open(srcFolder + f_name, 'r') as f:
+                tkns = f.read()
+        except FileNotFoundError:
+            print('File \'{0}\' does not exit.'.format(f_name))
+            return 1
+        f.close()
+        writer.add_document(title=f_name[:-4], content=tkns)
+
+    writer.commit()
+
+
+create_index(open_textbooks_files, open_textbooks_src_folder, open_textbooks_dst_folder)
+create_index(springer_files, springer_src_folder, springer_dst_folder)
+
 """
 ix = open_dir("indexdir")
 searcher = ix.searcher()
@@ -52,7 +62,3 @@ else:
     for x in results:
         print(x)
 """
-
-
-
-

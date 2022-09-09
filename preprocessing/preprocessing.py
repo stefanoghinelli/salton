@@ -7,7 +7,6 @@ from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from nltk.stem.lancaster import LancasterStemmer
 from nltk.corpus import wordnet as wn
-from contextlib import redirect_stdout
 
 """
 Open-textbooks Files
@@ -39,73 +38,79 @@ def preprocessor(files, scr_folder, dst_folder):
     for f_name in files:
         print("Starting pre-processing file: "+ f_name)
         raw_f_path = scr_folder + f_name
-        if f_name[-3:] == "pdf":
-            # Load your PDF
-            try:
-                with open(raw_f_path, "rb") as f:
-                    txt = pdftotext.PDF(f)
-            except FileNotFoundError:
-                print('File \'{0}\' does not exit.'.format(f_name))
-                return 1
+        # check file dimension
+        file_stats = os.stat(raw_f_path)
+        size = file_stats.st_size / (1024 * 1024)
+        if size:
+            if f_name[-3:] == "pdf":
+                # Load your PDF
+                try:
+                    with open(raw_f_path, "rb") as f:
+                        txt = pdftotext.PDF(f)
+                except FileNotFoundError:
+                    print('File \'{0}\' does not exit.'.format(f_name))
+                    return 1
 
-            # TOKENIZATION FOR PDF
-            tokens = word_tokenize("\n\n".join(txt))
-            # print(tokens)
+                # TOKENIZATION FOR PDF
+                tokens = word_tokenize("\n\n".join(txt))
+                # print(tokens)
+            else:
+                try:
+                    with open(raw_f_path, 'r') as f:
+                        content = f.read()
+                except FileNotFoundError:
+                    print('File \'{0}\' does not exit.'.format(f_name))
+
+                # TOKENIZATION FOR TXT
+                tokens = word_tokenize(content)
+
+            print("Ended tokenization of : " + f_name)
+
+            # migliora la performance; assume che i libri siano scritti in inglese
+            stops = set(stopwords.words("english"))
+
+            wnl = nltk.WordNetLemmatizer()
+
+            # STOPWORDS REMOVAL & LEMMATIZATION
+            filt_words = [wnl.lemmatize(tkn.lower()) for tkn in tokens if tkn.lower() not in stops]
+
+            # STEMMING
+            # krovetzstemmer meno aggressivo di Porter
+
+            """
+            stemmer = Stemmer()
+            stem_words = []
+            for word in filt_words:
+                stem_words.append(stemmer.stem(word))"""
+
+            lancaster = LancasterStemmer()
+            for word in filt_words:
+                word = lancaster.stem(word)
+
+            print("Ended lemming/stemming of : " + f_name)
+
+            # REMOVE PUNCTUATION
+            punc = set(string.punctuation + "“" + "”" + "©" + "’" + "∞")
+
+            print("Starting removing punctuation of  : " + f_name)
+
+            for word in filt_words:
+                if word in punc:
+                    filt_words.remove(word)
+
+            file_tokens_path = dst_folder + f_name[:-4] + "_tokens.txt"
+
+            f = open(file_tokens_path, "w")
+            f.write(" ".join(filt_words))
+            f.close()
+
+            print("Writed tokens of : " + f_name)
+
+            #print("Disambiguation started")
+            #disambiguateTerms(filt_words)
+            #print("Disambiguation ended")
         else:
-            try:
-                with open(raw_f_path, 'r') as f:
-                    content = f.read()
-            except FileNotFoundError:
-                print('File \'{0}\' does not exit.'.format(f_name))
-
-            # TOKENIZATION FOR TXT
-            tokens = word_tokenize(content)
-
-        print("Ended tokenization of : " + f_name)
-
-        # migliora la performance; assume che i libri siano scritti in inglese
-        stops = set(stopwords.words("english"))
-
-        wnl = nltk.WordNetLemmatizer()
-
-        # STOPWORDS REMOVAL & LEMMATIZATION
-        filt_words = [wnl.lemmatize(tkn.lower()) for tkn in tokens if tkn.lower() not in stops]
-
-        # STEMMING
-        # krovetzstemmer meno aggressivo di Porter
-
-        """
-        stemmer = Stemmer()
-        stem_words = []
-        for word in filt_words:
-            stem_words.append(stemmer.stem(word))"""
-
-        lancaster = LancasterStemmer()
-        for word in filt_words:
-            word = lancaster.stem(word)
-
-        print("Ended lemming/stemming of : " + f_name)
-
-        # REMOVE PUNCTUATION
-        punc = set(string.punctuation + "“" + "”" + "©" + "’" + "∞")
-
-        print("Starting removing punctuation of  : " + f_name)
-
-        for word in filt_words:
-            if word in punc:
-                filt_words.remove(word)
-
-        file_tokens_path = dst_folder + f_name[:-4] + "_tokens.txt"
-
-        f = open(file_tokens_path, "w")
-        f.write(" ".join(filt_words))
-        f.close()
-
-        print("Writed tokens of : " + f_name)
-
-        #print("Disambiguation started")
-        #disambiguateTerms(filt_words)
-        #print("Disambiguation ended")
+            print("Corrupted file  : " + f_name)
 
 
 def disambiguateTerms(terms):
