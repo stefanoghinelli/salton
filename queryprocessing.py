@@ -1,4 +1,4 @@
-from whoosh.qparser import QueryParser, MultifieldParser, OrGroup
+from whoosh.qparser import MultifieldParser, OrGroup
 from whoosh import scoring
 from whoosh import index
 
@@ -6,6 +6,10 @@ from whoosh import index
 
 OPENB_INDEX_PATH = "./preprocessing/indexdir/open-textbooks"
 SPR_INDEX_PATH = "./preprocessing/indexdir/springer"
+
+
+QUERY_NATURAL_PATH = "/home/massimiliano/thematic-search-engine/query_natual_lang.txt"
+QUERY_BENCH_PATH = "/home/massimiliano/thematic-search-engine/query_benchmark.txt"
 
 # DOC_PATH = os.path.abspath(os.path.pardir) + os.path.sep +"Docs"
 
@@ -17,8 +21,10 @@ def submit_query(user_query, idx_path):
                           schema=ix.schema,  # with my schema
                           group=OrGroup)  # OR instead AND
     user_query = user_query.lower()
+
     print("This is UNI: " + user_query)
     q = qp.parse(user_query)
+
     print("This is the parsed query: " + str(q))
     with ix.searcher(weighting=scoring.BM25F(B=0.75, content_B=1.0, K1=1.2)) as searcher:
         corrected = searcher.correct_query(q, user_query)
@@ -27,6 +33,7 @@ def submit_query(user_query, idx_path):
             exit(1)
         results = searcher.search(q)
         ret = []
+
         print(str(len(results)) + " results\n")
         for r in results:
             print(r.rank, ".", r["title"], " (Score: ", r.score, ")", )
@@ -35,27 +42,57 @@ def submit_query(user_query, idx_path):
         print("\nRun time: " + "{:.5f}".format(results.runtime) + " s")
         return ret
 
-UNI = "diagnosis"
-print("\nSubmitted OPB query -------")
-ris_opb = submit_query(UNI, OPENB_INDEX_PATH)
-print("\nSubmitted SPR query -------")
-ris_spr = submit_query(UNI, SPR_INDEX_PATH)
 
-total_ris = [j for i in [ris_opb, ris_spr] for j in i]
-sorted_ris = sorted(total_ris, key=lambda x: x["score"], reverse=True)
+def search_something(usr_query):
 
-print("\nFinal results -------")
+    # uni = input("Inserisci la query: ")
 
-for w in sorted_ris:
-    print(w)
+    # print("\nSubmitted OPB query -------")
+    ris_opb = submit_query(usr_query, OPENB_INDEX_PATH)
+
+    # print("\nSubmitted SPR query -------")
+    ris_spr = submit_query(usr_query, SPR_INDEX_PATH)
+
+    total_ris = [j for i in [ris_opb, ris_spr] for j in i]
+    sorted_ris = sorted(total_ris, key=lambda x: x["score"], reverse=True)
+
+    # print("\nFinal results -------")
+
+    # for w in sorted_ris:
+    #   print(w)
+
+    return sorted_ris
 
 
-#
-# def submit_query(q, idx_path):
-#     results = []
-#     ix = index.open_dir(idx_path)
-#     query = QueryParser("content", ix.schema).parse(q)
-#     with ix.searcher(weighting=scoring.BM25F(B=0.75, title_B=1.0, content_B=0.1, K1=2)) as searcher:
-#         for r in searcher.search(query, limit=30):
-#             results.append({'rank': r.rank, 'book': r["title"], 'score': r.score})
-#     return results
+def benchmark():
+    tot_q = 10
+    # ragionarci
+    precisions = [1, 0.948, 1, 0.975, 0.218, 1, 1, 1, 1, 1]
+    map_val = sum(precisions)/tot_q
+
+    natural_queries = []
+    with open(QUERY_NATURAL_PATH, 'r') as f:
+        for line in f:
+            # print(line, "-----")
+            natural_queries.append(line[:-1])
+
+    comp_queries = []
+    with open(QUERY_BENCH_PATH, 'r') as f:
+        for line in f:
+            # print(line, "-----")
+            comp_queries.append(line[:-1])
+
+    final_res = []
+    for cq in comp_queries:
+        x = search_something(cq)[:11]
+        final_res.append(x)
+
+    for fs in final_res:
+        print(f'{ natural_queries.pop(0) }')
+        print(f'Eseguendo query: { comp_queries.pop(0) }')
+        print('numero di risultati ottenuto: ' + str(len(fs)))
+        print(f'Average Precision per primi 10 risultati: { precisions.pop(0) } \n\n')
+    print(f'\nMean Average Precision: { map_val } \n')
+
+
+benchmark()
