@@ -74,15 +74,6 @@ def preprocessor(files, scr_folder, dst_folder):
             # STOPWORDS REMOVAL & LEMMATIZATION
             filt_words = [wnl.lemmatize(tkn.lower()) for tkn in tokens if tkn.lower() not in stops]
 
-            # STEMMING
-            # krovetzstemmer meno aggressivo di Porter
-
-            """
-            stemmer = Stemmer()
-            stem_words = []
-            for word in filt_words:
-                stem_words.append(stemmer.stem(word))"""
-
             lancaster = LancasterStemmer()
             for word in filt_words:
                 word = lancaster.stem(word)

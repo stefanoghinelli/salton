@@ -17,6 +17,8 @@ page = "~=0.1.9"
 requests = "~=2.28.1"
 beautifulsoup4 = "~=4.11.1"
 lxml = "~=4.9.1"
+flask = "*"
+stopwords = "*"
 
 [dev-packages]
 

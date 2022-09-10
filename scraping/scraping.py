@@ -44,9 +44,9 @@ def get_content(url):
     return content
 
 
-def get_source1(pages):
+def get_sourceOPB(pages):
     for i in range(0, pages):
-        content = get_content(OPEN_TEXTBOOK_BASE_URL + "/opentextbooks/textbooks/new?&page=" + str(i+1))
+        content = get_content(OPEN_TEXTBOOK_BASE_URL + "/opentextbooks/textbooks/new?&page=" + str(i + 1))
         divs = content.xpath('//div[@id="textbook-list"]/div')
         for div in divs:
             div_intern = div.xpath("./div")[1]
@@ -64,11 +64,10 @@ def get_source1(pages):
                     download(final_pdf_url, filename)
 
 
-
-def get_source2(pages):
+def get_sourceSPR(pages):
     for i in range(0, pages):
         content = get_content(
-            SPRINGER_BASE_URL + "/search/page/" + str(i+1) + "?facet-content-type=%22Book%22&package=openaccess")
+            SPRINGER_BASE_URL + "/search/page/" + str(i + 1) + "?facet-content-type=%22Book%22&package=openaccess")
         lis = content.xpath('//ol[@id="results-list"]/li')
         for li in lis:
             div = li.xpath("./div")[1]
@@ -82,14 +81,10 @@ def get_source2(pages):
             # significa che non è presente il bottone del download PDF
             if len(div) > 0:
                 url = div.xpath('./div')[0].xpath('./div')[0].xpath('./a')[0].get('href')
-                # filename = content.xpath('//h1[@data-test="book-title"]/text()')[0].replace('\n', ' ')
                 if url.endswith('.pdf'):
-                    final_pdf_url = url
-                    print("Downloading from URL" + final_pdf_url)
-                    download(final_pdf_url, filename)
+                    print("Downloading from URL" + url)
+                    download(url, filename)
 
 
-
-class CreateRepositories:
-  #  get_source1(2)
-    get_source2(2)
+get_sourceOPB(1)
+get_sourceSPR(1)

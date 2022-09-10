@@ -24,7 +24,7 @@ def create_index(files, srcFolder, dst_folder):
     StandardAnalyzer di defualt che tokenizza il campo content,
     useremo quelli creati nella fase di pre-processing
     """
-    schema = Schema(title=TEXT(stored=True), path=ID(stored=True), content=TEXT)
+    schema = Schema(title=TEXT(stored=True), path=ID(stored=True), content=TEXT(stored=True))
 
     if not os.path.exists("indexdir" + dst_folder):
         os.mkdir("indexdir" + dst_folder)
@@ -45,9 +45,12 @@ def create_index(files, srcFolder, dst_folder):
 
     writer.commit()
 
-
+print("OPB indexing started...")
 create_index(open_textbooks_files, open_textbooks_src_folder, open_textbooks_dst_folder)
+print("OPB finished")
+print("SPR indexing started...")
 create_index(springer_files, springer_src_folder, springer_dst_folder)
+print("SPR finished")
 
 """
 ix = open_dir("indexdir")
