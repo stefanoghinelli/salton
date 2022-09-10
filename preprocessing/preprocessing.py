@@ -36,11 +36,14 @@ def preprocessor(files, scr_folder, dst_folder):
         sys.exit("\'documents\' dir is empty cannot works")
 
     for f_name in files:
-        print("Starting pre-processing file: "+ f_name)
+
         raw_f_path = scr_folder + f_name
+        print("Starting pre-processing file: " + f_name)
+
         # check file dimension
         file_stats = os.stat(raw_f_path)
         size = file_stats.st_size / (1024 * 1024)
+
         if size:
             if f_name[-3:] == "pdf":
                 # Load your PDF
@@ -97,9 +100,9 @@ def preprocessor(files, scr_folder, dst_folder):
 
             print("Writed tokens of : " + f_name)
 
-            #print("Disambiguation started")
-            #disambiguateTerms(filt_words)
-            #print("Disambiguation ended")
+            # print("Disambiguation started")
+            # disambiguateTerms(filt_words)
+            # print("Disambiguation ended")
         else:
             print("Corrupted file  : " + f_name)
 
