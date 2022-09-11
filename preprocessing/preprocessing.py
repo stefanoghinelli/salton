@@ -12,10 +12,8 @@ from nltk.corpus import wordnet as wn
 Open-textbooks Files
 """
 
-# open_textbooks_src_folder = '/home/massimiliano/UNI/Gestione_dell_informazione/thematic-search-engine/documents/open-textbooks/'
 open_textbooks_src_folder = '../documents/open-textbooks/'
 
-# open_textbooks_dst_folder = '/home/massimiliano/UNI/Gestione_dell_informazione/thematic-search-engine/doc_tokens/'
 open_textbooks_dst_folder = '../doc_tokens/open-textbooks/'
 
 open_textbooks_files = os.listdir(open_textbooks_src_folder)

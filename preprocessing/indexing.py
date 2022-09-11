@@ -6,13 +6,13 @@ from whoosh.fields import *
 # srcFolder = '../doc_tokens/'
 
 
-open_textbooks_src_folder = '/home/massimiliano/thematic-search-engine/doc_tokens/open-textbooks/'
+open_textbooks_src_folder = os.path.curdir + + os.path.sep + 'doc_tokens/open-textbooks/'
 open_textbooks_dst_folder = '/open-textbooks/'
 
 open_textbooks_files = os.listdir(open_textbooks_src_folder)
 
 
-springer_src_folder = '/home/massimiliano/thematic-search-engine/doc_tokens/springer/'
+springer_src_folder = os.path.curdir + + os.path.sep + 'doc_tokens/springer/'
 springer_dst_folder = '/springer/'
 
 springer_files = os.listdir(springer_src_folder)

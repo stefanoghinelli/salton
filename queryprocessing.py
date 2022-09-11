@@ -1,17 +1,15 @@
+import os
+
 from whoosh.qparser import MultifieldParser, OrGroup
 from whoosh import scoring
 from whoosh import index
 
-# INDEX_PATH = os.path.abspath(os.path.pardir) + os.path.sep + "indexdir"
-
-OPENB_INDEX_PATH = "./preprocessing/indexdir/open-textbooks"
-SPR_INDEX_PATH = "./preprocessing/indexdir/springer"
+OPENB_INDEX_PATH = os.path.curdir + + os.path.sep + "preprocessing/indexdir/open-textbooks"
+SPR_INDEX_PATH = os.path.curdir + + os.path.sep + "preprocessing/indexdir/springer"
 
 
-QUERY_NATURAL_PATH = "/home/massimiliano/thematic-search-engine/query_natual_lang.txt"
-QUERY_BENCH_PATH = "/home/massimiliano/thematic-search-engine/query_benchmark.txt"
-
-# DOC_PATH = os.path.abspath(os.path.pardir) + os.path.sep +"Docs"
+QUERY_NATURAL_PATH = os.path.curdir + + os.path.sep + "query_natual_lang.txt"
+QUERY_BENCH_PATH = os.path.curdir + + os.path.sep + "query_benchmark.txt"
 
 
 def submit_query(user_query, idx_path):
@@ -89,9 +87,9 @@ def benchmark():
 
     for fs in final_res:
         print(f'{ natural_queries.pop(0) }')
-        print(f'Eseguendo query: { comp_queries.pop(0) }')
-        print('numero di risultati ottenuto: ' + str(len(fs)))
-        print(f'Average Precision per primi 10 risultati: { precisions.pop(0) } \n\n')
+        print(f'Executing query: { comp_queries.pop(0) }')
+        print('Results number: ' + str(len(fs)))
+        print(f'Average Precision for first 10 results: { precisions.pop(0) } \n\n')
     print(f'\nMean Average Precision: { map_val } \n')
 
 
