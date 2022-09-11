@@ -4,12 +4,12 @@ from whoosh.qparser import MultifieldParser, OrGroup
 from whoosh import scoring
 from whoosh import index
 
-OPENB_INDEX_PATH = os.path.curdir + + os.path.sep + "preprocessing/indexdir/open-textbooks"
-SPR_INDEX_PATH = os.path.curdir + + os.path.sep + "preprocessing/indexdir/springer"
+OPENB_INDEX_PATH = os.path.curdir + os.path.sep + "preprocessing/indexdir/open-textbooks"
+SPR_INDEX_PATH = os.path.curdir + os.path.sep + "preprocessing/indexdir/springer"
 
 
-QUERY_NATURAL_PATH = os.path.curdir + + os.path.sep + "query_natual_lang.txt"
-QUERY_BENCH_PATH = os.path.curdir + + os.path.sep + "query_benchmark.txt"
+QUERY_NATURAL_PATH = os.path.curdir + os.path.sep + "query_natual_lang.txt"
+QUERY_BENCH_PATH = os.path.curdir + os.path.sep + "query_benchmark.txt"
 
 
 def submit_query(user_query, idx_path):
