@@ -41,28 +41,32 @@ def submit_query(user_query, idx_path):
         return ret
 
 
-def search_something(usr_query):
+# def search_something(usr_query):
+def search_something():
 
-    # uni = input("Inserisci la query: ")
+    uni = input("Inserisci la query: ")
 
-    # print("\nSubmitted OPB query -------")
-    ris_opb = submit_query(usr_query, OPENB_INDEX_PATH)
+    print("\nSubmitted OPB query -------")
+    # ris_opb = submit_query(usr_query, OPENB_INDEX_PATH)
+    ris_opb = submit_query(uni, OPENB_INDEX_PATH)
 
-    # print("\nSubmitted SPR query -------")
-    ris_spr = submit_query(usr_query, SPR_INDEX_PATH)
+    print("\nSubmitted SPR query -------")
+    # ris_spr = submit_query(usr_query, SPR_INDEX_PATH)
+    ris_spr = submit_query(uni, SPR_INDEX_PATH)
 
     total_ris = [j for i in [ris_opb, ris_spr] for j in i]
     sorted_ris = sorted(total_ris, key=lambda x: x["score"], reverse=True)
 
-    # print("\nFinal results -------")
+    print("\nFinal results -------")
 
-    # for w in sorted_ris:
-    #   print(w)
+    for w in sorted_ris:
+        print(w)
 
-    return sorted_ris
+    # return sorted_ris
 
 
-def benchmark():
+"""
+def benchmarking():
     tot_q = 10
     # ragionarci
     precisions = [1, 0.948, 1, 0.975, 0.218, 1, 1, 1, 1, 1]
@@ -85,12 +89,20 @@ def benchmark():
         x = search_something(cq)[:11]
         final_res.append(x)
 
+    # print(final_res)
     for fs in final_res:
-        print(f'{ natural_queries.pop(0) }')
-        print(f'Executing query: { comp_queries.pop(0) }')
+
+        print(f'Natural query: { natural_queries.pop(0) }')
+        print(f'Executed query: { comp_queries.pop(0) }')
+    
         print('Results number: ' + str(len(fs)))
+        print(fs)
+        break
         print(f'Average Precision for first 10 results: { precisions.pop(0) } \n\n')
     print(f'\nMean Average Precision: { map_val } \n')
 
+benchmarking()
+"""
 
-benchmark()
+while True:
+    search_something()

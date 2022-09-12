@@ -86,5 +86,5 @@ def get_sourceSPR(pages):
                     download(url, filename)
 
 
-get_sourceOPB(1)
-get_sourceSPR(1)
+get_sourceOPB(2)
+get_sourceSPR(2)
