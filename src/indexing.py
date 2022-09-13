@@ -67,12 +67,12 @@ def create_index(files, srcFolder, dst_folder, ix):
         # compute MD5 of the fileName, which will be used as the UUID of the entity to make it unique
         hash_object = hashlib.md5(str(f_name_in_pdf).encode('utf-8'))
         uuid = hash_object.hexdigest()
-        # performs entity resolution only during if is the source 2 "springer"
+        # performs entity resolution only if is the source 2 "springer"
         if "springer" in srcFolder:
             if exec_entity_resolution(uuid):
                 writer.add_document(title=f_name_in_pdf, content=tkns, uuid=uuid, date=datetime.now())
             else:
-                print(f_name_in_pdf + " was merged")
+                print(f_name_in_pdf + " already present.")
         else:
             writer.add_document(title=f_name_in_pdf, content=tkns, uuid=uuid, date=datetime.now())
 
