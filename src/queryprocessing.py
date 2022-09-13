@@ -1,18 +1,15 @@
-import os
-
 from whoosh.qparser import MultifieldParser, OrGroup
 from whoosh import scoring
 from whoosh import index
 
-OPENB_INDEX_PATH = os.path.curdir + os.path.sep + "preprocessing/indexdir/open-textbooks"
-SPR_INDEX_PATH = os.path.curdir + os.path.sep + "preprocessing/indexdir/springer"
+OPENB_INDEX_PATH = "../indexdir/open-textbooks"
+SPR_INDEX_PATH = "../indexdir/springer"
+
+QUERY_NATURAL_PATH = "../evaluation/query_natual_lang.txt"
+QUERY_BENCH_PATH = "../evaluation/query_benchmark.txt"
 
 
-QUERY_NATURAL_PATH = os.path.curdir + os.path.sep + "query_natual_lang.txt"
-QUERY_BENCH_PATH = os.path.curdir + os.path.sep + "query_benchmark.txt"
-
-
-def submit_query(user_query, idx_path):
+def submit_query(user_query, idx_path, check_correction=True):
     ix = index.open_dir(idx_path)
     qp = MultifieldParser(["title",
                            "content"],  # all selected fields
@@ -25,11 +22,19 @@ def submit_query(user_query, idx_path):
 
     print("This is the parsed query: " + str(q))
     with ix.searcher(weighting=scoring.BM25F(B=0.75, content_B=1.0, K1=1.2)) as searcher:
-        corrected = searcher.correct_query(q, user_query)
-        if corrected.query != q:
-            print("Did you mean:", corrected.string + " ?")
-            exit(1)
-        results = searcher.search(q)
+        if check_correction:
+            corrected = searcher.correct_query(q, user_query)
+            if corrected.query != q:
+                print("Did you mean:", corrected.string + " ?")
+                confirm = input("Type y or n: ")
+                if confirm == "y":
+                    submit_query(corrected.string, idx_path, False)
+                else:
+                    pass
+        else:
+            pass
+
+        results = searcher.search(q, limit=30)
         ret = []
 
         print(str(len(results)) + " results\n")
@@ -41,18 +46,15 @@ def submit_query(user_query, idx_path):
         return ret
 
 
-# def search_something(usr_query):
 def search_something():
 
-    uni = input("Inserisci la query: ")
+    uni = input("Insert your query: ")
 
     print("\nSubmitted OPB query -------")
-    # ris_opb = submit_query(usr_query, OPENB_INDEX_PATH)
     ris_opb = submit_query(uni, OPENB_INDEX_PATH)
 
     print("\nSubmitted SPR query -------")
-    # ris_spr = submit_query(usr_query, SPR_INDEX_PATH)
-    ris_spr = submit_query(uni, SPR_INDEX_PATH)
+    ris_spr = submit_query(uni, SPR_INDEX_PATH, False)
 
     total_ris = [j for i in [ris_opb, ris_spr] for j in i]
     sorted_ris = sorted(total_ris, key=lambda x: x["score"], reverse=True)
@@ -61,8 +63,6 @@ def search_something():
 
     for w in sorted_ris:
         print(w)
-
-    # return sorted_ris
 
 
 """
@@ -104,5 +104,5 @@ def benchmarking():
 benchmarking()
 """
 
-while True:
+if __name__ == '__main__':
     search_something()

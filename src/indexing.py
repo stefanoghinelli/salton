@@ -3,8 +3,8 @@ from whoosh.index import create_in
 from whoosh.fields import *
 import hashlib
 from datetime import datetime
-
 from whoosh.qparser import QueryParser
+from queryprocessing import *
 
 open_textbooks_src_folder = '../doc_tokens/open-textbooks/'
 open_textbooks_dst_folder = '/open-textbooks/'
@@ -15,19 +15,21 @@ springer_dst_folder = '/springer/'
 springer_files = os.listdir(springer_src_folder)
 
 """
-Leggendo la documentazione, il campo TEXT usa uno 
-StandardAnalyzer di defualt che tokenizza il campo content,
-useremo quelli creati nella fase di pre-processing
+Reading the documentation, the TEXT field uses a 
+StandardAnalyzer of default that tokenizes the content field,
+we will use those created in the pre-processing phase 
 """
 analyzer = analysis.StemmingAnalyzer()
 schema = Schema(uuid=ID(unique=True), title=TEXT(stored=True, analyzer=analyzer, spelling=True),
                 content=TEXT(stored=True, analyzer=analyzer, spelling=True), date=DATETIME(stored=True))
 
+"""
+This function is responsible for:
+ 1. receiving as input the identifier (UUID) of the source 2 document
+ 2 .search for such UUID by running a query on the "uuid" field of the index of source 1
+ 3. return True if such document is not yet present, false otherwise
+"""
 
-# questa funzione si occupa di:
-# - ricevere in input l'identificativo (UUID) del documento della sorgente 2
-# - cercare tale UUID eseguendo una query sul campo "uuid" dell'indice della sorgente 1
-# - restituire True se tale documento non è ancora presente, false altrimenti
 
 def exec_entity_resolution(uuid):
     qp = QueryParser("uuid", schema=open_textbooks_ix.schema)
@@ -45,8 +47,8 @@ def create_index(files, srcFolder, dst_folder, ix):
     if not files:
         sys.exit("\'doc_tokens\' dir is empty cannot works")
 
-    if not os.path.exists("indexdir" + dst_folder):
-        os.mkdir("indexdir" + dst_folder)
+    if not os.path.exists("../indexdir" + dst_folder):
+        os.mkdir("../indexdir" + dst_folder)
 
     writer = ix.writer()
 
@@ -60,30 +62,30 @@ def create_index(files, srcFolder, dst_folder, ix):
             return 1
 
         f.close()
-        # composizione del fileName originale in formato PDF
+        # composition of the original fileName in PDF format
         f_name_in_pdf = f_name.replace("_tokens.txt", ".pdf")
-        # calcolo dell'MD5 del fileName, il quale sarà utilizzato come UUID dell'entita' per renderla univoca
+        # compute MD5 of the fileName, which will be used as the UUID of the entity to make it unique
         hash_object = hashlib.md5(str(f_name_in_pdf).encode('utf-8'))
         uuid = hash_object.hexdigest()
-
-        # eseguita la entity resolution solo quando viene elaborata la sorgente 2 "springer (SPR)"
+        # performs entity resolution only during if is the source 2 "springer"
         if "springer" in srcFolder:
             if exec_entity_resolution(uuid):
                 writer.add_document(title=f_name_in_pdf, content=tkns, uuid=uuid, date=datetime.now())
             else:
-                print(f_name_in_pdf + " was merged.")
-
-        writer.add_document(title=f_name_in_pdf, content=tkns, uuid=uuid, date=datetime.now())
+                print(f_name_in_pdf + " was merged")
+        else:
+            writer.add_document(title=f_name_in_pdf, content=tkns, uuid=uuid, date=datetime.now())
 
     writer.commit()
 
 
-print("OPB indexing started...")
-open_textbooks_ix = create_in("indexdir" + open_textbooks_dst_folder, schema)
-create_index(open_textbooks_files, open_textbooks_src_folder, open_textbooks_dst_folder, open_textbooks_ix)
-print("OPB finished")
+if __name__ == '__main__':
+    print("Opentextbook indexing started...")
+    open_textbooks_ix = create_in("../indexdir" + open_textbooks_dst_folder, schema)
+    create_index(open_textbooks_files, open_textbooks_src_folder, open_textbooks_dst_folder, open_textbooks_ix)
+    print("Opentextbook finished")
 
-print("SPR indexing started...")
-springer_ix = create_in("indexdir" + springer_dst_folder, schema)
-create_index(springer_files, springer_src_folder, springer_dst_folder, springer_ix)
-print("SPR finished")
+    print("Springer indexing started...")
+    springer_ix = create_in("../indexdir" + springer_dst_folder, schema)
+    create_index(springer_files, springer_src_folder, springer_dst_folder, springer_ix)
+    print("Springer finished")

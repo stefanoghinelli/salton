@@ -44,7 +44,7 @@ def get_content(url):
     return content
 
 
-def get_sourceOPB(pages):
+def fetches_data_from_openbooktext(pages):
     for i in range(0, pages):
         content = get_content(OPEN_TEXTBOOK_BASE_URL + "/opentextbooks/textbooks/new?&page=" + str(i + 1))
         divs = content.xpath('//div[@id="textbook-list"]/div')
@@ -64,21 +64,23 @@ def get_sourceOPB(pages):
                     download(final_pdf_url, filename)
 
 
-def get_sourceSPR(pages):
+def fetches_data_from_springer(pages):
     for i in range(0, pages):
         content = get_content(
-            SPRINGER_BASE_URL + "/search/page/" + str(i + 1) + "?facet-content-type=%22Book%22&package=openaccess")
+            SPRINGER_BASE_URL + "/search/page/" + str(i + 1) + "c")
         lis = content.xpath('//ol[@id="results-list"]/li')
         for li in lis:
             div = li.xpath("./div")[1]
             url = div.xpath('./h2/a')[0].get('href')
             name = div.xpath('./h2/a')[0]
-            filename = "../documents/springer/" + name.xpath('./text()')[0] + ".pdf"
+            name = name.xpath('./text()')[0]
+            name = name.replace('/', ' ')
+            filename = "../documents/springer/" + name + ".pdf"
             print("Calling the URL:" + SPRINGER_BASE_URL + url)
             content = get_content(SPRINGER_BASE_URL + url)
             div = content.xpath('//div[@id="sidebar"]/div')[0]
-            # se l'elemento div recuperato in pagina è uguale a 0
-            # significa che non è presente il bottone del download PDF
+            # if the div element retrieved on page is equal to 0
+            # means that the PDF download button is not present
             if len(div) > 0:
                 url = div.xpath('./div')[0].xpath('./div')[0].xpath('./a')[0].get('href')
                 if url.endswith('.pdf'):
@@ -86,5 +88,10 @@ def get_sourceSPR(pages):
                     download(url, filename)
 
 
-get_sourceOPB(2)
-get_sourceSPR(2)
+if __name__ == '__main__':
+    # fetches from first 5 pages
+    pages_limit = 5
+    fetches_data_from_openbooktext(pages_limit)
+    fetches_data_from_springer(pages_limit)
+
+
