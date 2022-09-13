@@ -16,12 +16,12 @@ Access: users will have the ability to formulate requests based on a defined que
 ## Document collection: web scraping with python
 - lxml (https://lxml.de) 
 
-# Preparing the environment
+## Preparing the environment
 
 ```shell
 pip3 install -r requirements.txt
 
-python
+python3
 >>import nltk
 >>nltk.download('punkt')
 >>nltk.download('stopwords')
@@ -31,5 +31,23 @@ python
 
 sh prepare_environment.sh 
 
+
+```
+
+## Store first
+
+```shell
 cd src
+python3 scraping.py
+python3 preprocessing.py
+python3 indexing.py
+
+```
+
+## Query later
+
+```shell
+cd src
+python3 queryprocessing.py
+
 ```
