@@ -71,5 +71,8 @@ def search_something(q_benchmark=""):
         if corrected.query != q:
             print("\n ----> Maybe did you mean:", corrected.string + " ?")
 
+    if q_benchmark != "":
+        return sorted_ris
+
 if __name__ == '__main__':
     search_something()
