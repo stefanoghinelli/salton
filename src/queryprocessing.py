@@ -5,7 +5,7 @@ from whoosh import index
 OPENB_INDEX_PATH = "../indexdir/open-textbooks"
 SPR_INDEX_PATH = "../indexdir/springer"
 
-QUERY_NATURAL_PATH = "../evaluation/query_natual_lang.txt"
+QUERY_NATURAL_PATH = "../evaluation/query_natural_lang.txt"
 QUERY_BENCH_PATH = "../evaluation/query_benchmark.txt"
 
 

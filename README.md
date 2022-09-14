@@ -51,3 +51,11 @@ cd src
 python3 queryprocessing.py
 
 ```
+
+## Do Benchmark
+
+```shell
+cd src
+python3 queryprocessing.py
+
+```
