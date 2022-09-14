@@ -1,4 +1,4 @@
-from whoosh.qparser import MultifieldParser, OrGroup
+from whoosh.qparser import MultifieldParser, OrGroup, AndGroup
 from whoosh import scoring
 from whoosh import index
 
@@ -13,14 +13,22 @@ def submit_query(user_query, idx_path):
     ix = index.open_dir(idx_path)
     qp = MultifieldParser(["title",
                            "content"],  # all selected fields
-                          schema=ix.schema,  # with my schema
-                          group=OrGroup)  # OR instead AND
+                          schema=ix.schema,  # my schema
+                          group=OrGroup  # OR instead AND
+                          )
+    if "AND" in user_query:
+        qp = MultifieldParser(["title",
+                               "content"],  # all selected fields
+                              schema=ix.schema,  # my schema
+                              group=AndGroup  # AND instead OR
+                              )
+
     user_query = user_query.lower()
 
-    # print("This is uin: " + user_query)
+    print("This is uin: " + user_query)
     q = qp.parse(user_query)
 
-    # print("This is the parsed query: " + str(q))
+    print("This is the parsed query: " + str(q))
     with ix.searcher(weighting=scoring.BM25F(B=0.75, content_B=1.0, K1=1.2)) as searcher:
         results = searcher.search(q, limit=10)
         ret = []
@@ -36,9 +44,9 @@ def submit_query(user_query, idx_path):
 
 def search_something(q_benchmark=""):
     if q_benchmark != "":
-        uin=q_benchmark
+        uin = q_benchmark
     else:
-        uin = input("Insert your query: ")  # "An Exhical Foundation for Environmentalism"
+        uin = input("Insert your query: ")  # "An Ethical Foundation for Environmentalism"
 
     # print("\nSubmitted OPB query -------")
     ris_opb = submit_query(uin, OPENB_INDEX_PATH)
@@ -51,7 +59,7 @@ def search_something(q_benchmark=""):
 
     print("\n---------------------")
     print("---------------------")
-    print("    R e s u l t s")
+    print("    R e s u l t s    ")
     print("---------------------")
     print("---------------------")
 
@@ -61,9 +69,9 @@ def search_something(q_benchmark=""):
 
     ix = index.open_dir(OPENB_INDEX_PATH)
     qp = MultifieldParser(["title",
-                           "content"],  # all selected fields
-                          schema=ix.schema,  # with my schema
-                          group=OrGroup)  # OR instead AND
+                           "content"],
+                          schema=ix.schema,
+                          )
     user_query = uin.lower()
     q = qp.parse(user_query)
     with ix.searcher(weighting=scoring.BM25F(B=0.75, content_B=1.0, K1=1.2)) as searcher:
@@ -73,6 +81,7 @@ def search_something(q_benchmark=""):
 
     if q_benchmark != "":
         return sorted_ris
+
 
 if __name__ == '__main__':
     search_something()

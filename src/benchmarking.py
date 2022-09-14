@@ -31,7 +31,6 @@ def benchmarking():
 
         print('Results number: ' + str(len(fs)))
         print(fs)
-        break
         print(f'Average Precision for first 10 results: {precisions.pop(0)} \n\n')
     print(f'\nMean Average Precision: {map_val} \n')
 
