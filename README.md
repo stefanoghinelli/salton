@@ -18,7 +18,7 @@ Access: users will have the ability to formulate requests based on a defined que
 
 ## Preparing the environment
 
-```shell
+```
 pip3 install -r requirements.txt
 
 python3
@@ -36,7 +36,7 @@ sh prepare_environment.sh
 
 ## Store first
 
-```shell
+```
 cd src
 python3 scraping.py
 python3 preprocessing.py
@@ -46,16 +46,16 @@ python3 indexing.py
 
 ## Query later
 
-```shell
+```
 cd src
 python3 queryprocessing.py
 
 ```
 
-## Do Benchmark
+## Do benchmark
 
-```shell
+```
 cd src
-python3 queryprocessing.py
+python3 benchmarking.py
 
 ```
