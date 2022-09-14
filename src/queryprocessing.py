@@ -17,7 +17,7 @@ def submit_query(user_query, idx_path):
                           group=OrGroup)  # OR instead AND
     user_query = user_query.lower()
 
-    # print("This is UNI: " + user_query)
+    # print("This is uin: " + user_query)
     q = qp.parse(user_query)
 
     # print("This is the parsed query: " + str(q))
@@ -34,14 +34,17 @@ def submit_query(user_query, idx_path):
         return ret
 
 
-def search_something():
-    uni = input("Insert your query: ")  # "An Exhical Foundation for Environmentalism"
+def search_something(q_benchmark=""):
+    if q_benchmark != "":
+        uin=q_benchmark
+    else:
+        uin = input("Insert your query: ")  # "An Exhical Foundation for Environmentalism"
 
     # print("\nSubmitted OPB query -------")
-    ris_opb = submit_query(uni, OPENB_INDEX_PATH)
+    ris_opb = submit_query(uin, OPENB_INDEX_PATH)
 
     # print("\nSubmitted SPR query -------")
-    ris_spr = submit_query(uni, SPR_INDEX_PATH)
+    ris_spr = submit_query(uin, SPR_INDEX_PATH)
 
     total_ris = [j for i in [ris_opb, ris_spr] for j in i]
     sorted_ris = sorted(total_ris, key=lambda x: x["score"], reverse=True)
@@ -61,7 +64,7 @@ def search_something():
                            "content"],  # all selected fields
                           schema=ix.schema,  # with my schema
                           group=OrGroup)  # OR instead AND
-    user_query = uni.lower()
+    user_query = uin.lower()
     q = qp.parse(user_query)
     with ix.searcher(weighting=scoring.BM25F(B=0.75, content_B=1.0, K1=1.2)) as searcher:
         corrected = searcher.correct_query(q, user_query)
