@@ -3,8 +3,7 @@ from queryprocessing import *
 
 def benchmarking():
     tot_q = 10
-    # ragionarci
-    precisions = [1, 0.948, 1, 0.975, 0.218, 1, 1, 1, 1, 1]
+    precisions = [1, 1, 1, 1, 1, 0.6, 0.3, 0.3, 0.3, 1]
     map_val = sum(precisions) / tot_q
 
     natural_queries = []
