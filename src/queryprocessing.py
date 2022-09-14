@@ -46,7 +46,7 @@ def search_something(q_benchmark=""):
     if q_benchmark != "":
         uin = q_benchmark
     else:
-        uin = input("Insert your query: ")  # "An Ethical Foundation for Environmentalism"
+        uin = "biodiversity AND agricultural"  # input("Insert your query: ")  # "An Ethical Foundation for Environmentalism"
 
     # print("\nSubmitted OPB query -------")
     ris_opb = submit_query(uin, OPENB_INDEX_PATH)
