@@ -25,12 +25,12 @@ def submit_query(user_query, idx_path):
 
     user_query = user_query.lower()
 
-    print("This is uin: " + user_query)
+    # print("This is uin: " + user_query)
     q = qp.parse(user_query)
 
-    print("This is the parsed query: " + str(q))
+    # print("This is the parsed query: " + str(q))
     with ix.searcher(weighting=scoring.BM25F(B=0.75, content_B=1.0, K1=1.2)) as searcher:
-        results = searcher.search(q, limit=10)
+        results = searcher.search(q, limit=5)
         ret = []
 
         # print(str(len(results)) + " results\n")
@@ -46,7 +46,7 @@ def search_something(q_benchmark=""):
     if q_benchmark != "":
         uin = q_benchmark
     else:
-        uin = "customer AND strategy" # input("Insert your query: ")  # "An Ethical Foundation for Environmentalism"
+        uin = input("Insert your query: ")  # "An Ethical Foundation for Environmentalism"
 
     # print("\nSubmitted OPB query -------")
     ris_opb = submit_query(uin, OPENB_INDEX_PATH)
