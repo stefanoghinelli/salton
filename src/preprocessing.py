@@ -8,40 +8,18 @@ from nltk.corpus import stopwords
 from nltk.stem.lancaster import LancasterStemmer
 from nltk.corpus import wordnet as wn
 
-"""
-Open-textbooks Files
-"""
-
-open_textbooks_src_folder = '../documents/open-textbooks/'
-open_textbooks_dst_folder = '../doc_tokens/open-textbooks/'
-open_textbooks_files = os.listdir(open_textbooks_src_folder)
-
-"""
-Springer Files
-"""
-
-springer_src_folder = '../documents/springer/'
-springer_dst_folder = '../doc_tokens/springer/'
-springer_files = os.listdir(springer_src_folder)
-
+SRC_FOLDER = '../data/pdf_downloads/'
+DST_FOLDER = '../data/txt/'
+FILES = os.listdir(SRC_FOLDER)
 
 def preprocessor(files, scr_folder, dst_folder):
     if not files:
         sys.exit("\'documents\' dir is empty cannot works")
 
     for f_name in files:
-
         raw_f_path = scr_folder + f_name
         print("Starting pre-processing file: " + f_name)
-
-        # check if size of file is less than 1MB
-        # it means the file is damaged
-        if os.stat(raw_f_path).st_size /(1024*1024) < 1:
-            print('File \'{0}\' is damaged.'.format(raw_f_path))
-            continue
-
         if f_name[-3:] == "pdf":
-            # Load your PDF
             try:
                 with open(raw_f_path, "rb") as f:
                     txt = pdftotext.PDF(f)
@@ -54,43 +32,26 @@ def preprocessor(files, scr_folder, dst_folder):
 
             # TOKENIZATION FOR PDF
             tokens = word_tokenize("\n\n".join(txt))
-            # print(tokens)
-        else:
-            try:
-                with open(raw_f_path, 'r') as f:
-                    content = f.read()
-            except FileNotFoundError:
-                print('File \'{0}\' does not exit.'.format(f_name))
-
-            # TOKENIZATION FOR TXT
-            tokens = word_tokenize(content)
-
+            
         print("Ended tokenization of : " + f_name)
-
         stops = set(stopwords.words("english"))
-
         wnl = nltk.WordNetLemmatizer()
-
         # STOPWORDS REMOVAL & LEMMATIZATION
         filt_words = [wnl.lemmatize(tkn.lower()) for tkn in tokens if tkn.lower() not in stops]
-
         lancaster = LancasterStemmer()
         for word in filt_words:
             word = lancaster.stem(word)
-
         print("Ended lemming/stemming of : " + f_name)
-
+        
         # REMOVE PUNCTUATION
-        punc = set(string.punctuation + "“" + "”" + "©" + "’" + "∞")
+        # punc = set(string.punctuation + "“" + "”" + "©" + "’" + "∞")
+        # print("Starting removing punctuation of  : " + f_name)
 
-        print("Starting removing punctuation of  : " + f_name)
-
-        for word in filt_words:
-            if word in punc:
-                filt_words.remove(word)
+        # for word in filt_words:
+        #     if word in punc:
+        #         filt_words.remove(word)
 
         file_tokens_path = dst_folder + f_name[:-4] + "_tokens.txt"
-
         f = open(file_tokens_path, "w")
         f.write(" ".join(filt_words))
         f.close()
@@ -127,6 +88,5 @@ def disambiguateTerms(terms):
             print(t_i, ": --")
 
 if __name__ == '__main__':
-    preprocessor(open_textbooks_files, open_textbooks_src_folder, open_textbooks_dst_folder)
-    preprocessor(springer_files, springer_src_folder, springer_dst_folder)
+    preprocessor(FILES, SRC_FOLDER, DST_FOLDER)
 
