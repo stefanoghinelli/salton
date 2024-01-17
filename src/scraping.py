@@ -1,29 +1,28 @@
 import requests
-from lxml import html
 import sys
 import os
 import re
+from lxml import html
 
 URL = 'https://core.ac.uk/search?q=language%3A%22en%22+AND+fieldsOfStudy%3A%22computer+science%22&page='
+HEADERS = {'User-Agent': 'Mozilla/5.0'}
 
 def get_content(url):
-    headers = {'User-Agent': 'Mozilla/5.0'}
     try:
-        with requests.get(url, headers=headers, stream=True) as response:
+        with requests.get(url, headers=HEADERS, stream=True) as response:
             response.raise_for_status()
             return html.fromstring(response.content)
     except requests.RequestException as e:
         print(f"Error from {url}: {e}", file=sys.stderr)
         return None
 
-def fetch_data(pages, pdf_folder="../data/pdf_downloads", txt_folder="../data/txt"):
+def fetch_data(pages, pdf_folder="./data/pdf_downloads", txt_folder="./data/txt"):
     for i in range(pages):
         tree = get_content(URL + str(i + 1))
         card_containers = tree.xpath("//div[contains(@class, 'card-container-11P0y')]")
-        headers = {'User-Agent': 'Mozilla/5.0'}
 
         for container in card_containers:
-            pdf_link = container.xpath(".//figure/a[contains(@href, '.pdf')]/@href")
+            pdf_link = container.xpath(".//figure/a[.//span[contains(text(), 'Get PDF')]]/@href")
             if pdf_link:
                 pdf_url = pdf_link[0]
                 title = container.xpath(".//h3[@itemprop='name']/a/span/text()")
@@ -31,7 +30,7 @@ def fetch_data(pages, pdf_folder="../data/pdf_downloads", txt_folder="../data/tx
                 if pdf_url.startswith('http'):
                     sanitized_title = re.sub(r'[\\/:"*?<>|]+', '', title[0])
                     try:
-                        response = requests.get(pdf_url, headers=headers, stream=True)
+                        response = requests.get(pdf_url, headers=HEADERS, stream=True)
                         response.raise_for_status()
                         pdf_path = os.path.join(pdf_folder, sanitized_title + '.pdf')
                         with open(pdf_path, 'wb') as f:
