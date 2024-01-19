@@ -1,132 +1,83 @@
 import os
-import nltk
-import string
 import sys
 import pdftotext
-from nltk.tokenize import word_tokenize
-from nltk.corpus import stopwords
-from nltk.stem.lancaster import LancasterStemmer
-from nltk.corpus import wordnet as wn
+from nltk import word_tokenize, pos_tag
+from nltk.corpus import stopwords, wordnet as wn, wordnet
+from nltk.stem import WordNetLemmatizer
 
-"""
-Open-textbooks Files
-"""
+SRC_FOLDER = './data/pdf_downloads/'
+DST_FOLDER = './data/txt/'
+FILES = os.listdir(SRC_FOLDER)
 
-open_textbooks_src_folder = '../documents/open-textbooks/'
-open_textbooks_dst_folder = '../doc_tokens/open-textbooks/'
-open_textbooks_files = os.listdir(open_textbooks_src_folder)
-
-"""
-Springer Files
-"""
-
-springer_src_folder = '../documents/springer/'
-springer_dst_folder = '../doc_tokens/springer/'
-springer_files = os.listdir(springer_src_folder)
-
-
-def preprocessor(files, scr_folder, dst_folder):
+def preprocessor(files, src_folder, dst_folder):
     if not files:
-        sys.exit("\'documents\' dir is empty cannot works")
+        sys.exit("\'data/pdf_downloads\' directory is empty, cannot work")
+
+    stops = set(stopwords.words("english"))
+    lemmatizer = WordNetLemmatizer()
 
     for f_name in files:
-
-        raw_f_path = scr_folder + f_name
+        raw_f_path = os.path.join(src_folder, f_name)
         print("Starting pre-processing file: " + f_name)
-
-        # check if size of file is less than 1MB
-        # it means the file is damaged
-        if os.stat(raw_f_path).st_size /(1024*1024) < 1:
-            print('File \'{0}\' is damaged.'.format(raw_f_path))
+        try:
+            with open(raw_f_path, "rb") as f:
+                pdf = pdftotext.PDF(f)
+        except FileNotFoundError:
+            print('File \'{0}\' does not exit.'.format(f_name))
+            continue
+        except IOError:
+            print('File \'{0}\' has input/output exception.'.format(f_name))
             continue
 
-        if f_name[-3:] == "pdf":
-            # Load your PDF
-            try:
-                with open(raw_f_path, "rb") as f:
-                    txt = pdftotext.PDF(f)
-            except FileNotFoundError:
-                print('File \'{0}\' does not exit.'.format(f_name))
-                continue
-            except IOError:
-                print('File \'{0}\' has input/output exception.'.format(f_name))
-                continue
+        txt = "\n\n".join(pdf)
+        tokens = word_tokenize(txt)
+        filt_words = [lemmatizer.lemmatize(token.lower()) for token in tokens if token.isalpha() and token.lower() not in stops]
 
-            # TOKENIZATION FOR PDF
-            tokens = word_tokenize("\n\n".join(txt))
-            # print(tokens)
-        else:
-            try:
-                with open(raw_f_path, 'r') as f:
-                    content = f.read()
-            except FileNotFoundError:
-                print('File \'{0}\' does not exit.'.format(f_name))
+        #print("Disambiguation started")
+        #disambiguate_terms(filt_words)
+        #print("Disambiguation ended")
 
-            # TOKENIZATION FOR TXT
-            tokens = word_tokenize(content)
+        output_file_path = os.path.join(dst_folder, f_name[:-4] + "_tokens.txt")
+        with open(output_file_path, 'w') as output_file:
+            output_file.write(" ".join(filt_words))
+        print(f"Writed tokens of : {f_name}")
 
-        print("Ended tokenization of : " + f_name)
+def disambiguate_terms(terms):
+    tagged_terms = pos_tag(terms)
+    for term, tag in tagged_terms:
+        best = None
+        max_score = 0.0
+        wnet_pos = get_wordnet_pos(tag)
+        for sense in wn.synsets(term, pos=wnet_pos):
+            ctx_similarity = 0.0
+            for context_term, _ in tagged_terms:
+                if term != context_term:
+                    best_cxt_score = 0.0
+                    for context_sense in wn.synsets(context_term, pos=wnet_pos):
+                        similarity = sense.path_similarity(context_sense)
+                        if similarity and similarity > best_cxt_score:
+                            best_cxt_score = similarity
+                    ctx_similarity += best_cxt_score
+            if ctx_similarity > max_score:
+                best = sense
+                max_score = ctx_similarity
+        # if best:
+        #     print(f"{term}: {best} - {best.definition()}")
+        # else:
+        #     print(f"{term}: no meaning found")
 
-        stops = set(stopwords.words("english"))
-
-        wnl = nltk.WordNetLemmatizer()
-
-        # STOPWORDS REMOVAL & LEMMATIZATION
-        filt_words = [wnl.lemmatize(tkn.lower()) for tkn in tokens if tkn.lower() not in stops]
-
-        lancaster = LancasterStemmer()
-        for word in filt_words:
-            word = lancaster.stem(word)
-
-        print("Ended lemming/stemming of : " + f_name)
-
-        # REMOVE PUNCTUATION
-        punc = set(string.punctuation + "“" + "”" + "©" + "’" + "∞")
-
-        print("Starting removing punctuation of  : " + f_name)
-
-        for word in filt_words:
-            if word in punc:
-                filt_words.remove(word)
-
-        file_tokens_path = dst_folder + f_name[:-4] + "_tokens.txt"
-
-        f = open(file_tokens_path, "w")
-        f.write(" ".join(filt_words))
-        f.close()
-
-        print("Writed tokens of : " + f_name)
-
-        # print("Disambiguation started")
-        # disambiguateTerms(filt_words)
-        # print("Disambiguation ended")
-
-
-def disambiguateTerms(terms):
-    for t_i in terms:  # t_i is target term
-        selSense = None
-        selScore = 0.0
-        for s_ti in wn.synsets(t_i, wn.NOUN):
-            score_i = 0.0
-            for t_j in terms:  # t_j term in t_i's context window
-                if t_i == t_j:
-                    continue
-                bestScore = 0.0
-                for s_tj in wn.synsets(t_j, wn.NOUN):
-                    tempScore = s_ti.wup_similarity(s_tj)
-                    if tempScore > bestScore:
-                        bestScore = tempScore
-                score_i = score_i + bestScore
-            if score_i > selScore:
-                selScore = score_i
-                selSense = s_ti
-        if selSense is not None:
-            print(t_i, ": ", selSense, ", ", selSense.definition())
-            print("Score: ", selScore)
-        else:
-            print(t_i, ": --")
+def get_wordnet_pos(treebank_tag):
+    if treebank_tag.startswith('J'):
+        return wordnet.ADJ
+    elif treebank_tag.startswith('V'):
+        return wordnet.VERB
+    elif treebank_tag.startswith('N'):
+        return wordnet.NOUN
+    elif treebank_tag.startswith('R'):
+        return wordnet.ADV
+    else:
+        return wordnet.NOUN 
 
 if __name__ == '__main__':
-    preprocessor(open_textbooks_files, open_textbooks_src_folder, open_textbooks_dst_folder)
-    preprocessor(springer_files, springer_src_folder, springer_dst_folder)
+    preprocessor(FILES, SRC_FOLDER, DST_FOLDER)
 

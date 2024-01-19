@@ -1,5 +1,7 @@
-from queryprocessing import *
+from query_processing import *
 
+QUERY_NATURAL_PATH = "./evaluation/query_natural_lang.txt"
+QUERY_BENCH_PATH = "./evaluation/query_benchmark.txt"
 
 def benchmarking():
     tot_q = 10
@@ -23,16 +25,14 @@ def benchmarking():
         x = search_something(cq)[:11]
         final_res.append(x)
 
-    # print(final_res)
     for fs in final_res:
-        print(f'Natural query: {natural_queries.pop(0)}')
-        print(f'Executed query: {comp_queries.pop(0)}')
+        print(f"Natural query: {natural_queries.pop(0)}")
+        print(f"Executed query: {comp_queries.pop(0)}")
 
         print('Results number: ' + str(len(fs)))
         print(fs)
-        print(f'Precision for first 10 results: {precisions.pop(0)} \n\n')
-    print(f'\nMean Average Precision: {map_val} \n')
-
+        print(f"Precision for first 10 results: {precisions.pop(0)} \n\n")
+    print(f"\nMean Average Precision: {map_val} \n")
 
 if __name__ == '__main__':
     benchmarking()
