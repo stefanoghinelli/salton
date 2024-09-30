@@ -1,18 +1,18 @@
-# Everpapers, a thematic search engine
+# Thematic information retrieval system
 
 🚧 <img src="https://img.shields.io/badge/under%20construction-FF8C00" /> <img src="https://img.shields.io/badge/beta-blue"/> 🚧
 
 
 ## Project description
 
-This repository contains the evolution of the Information Retrieval project. Everpapers is a vertical search engine built upon a corpus of documents sourced from CORE (COnnecting REpositories), a public repository of open-access research papers. 
+This repository contains the evolution of the Information Retrieval project. It's a vertical search engine built upon a corpus of documents sourced from CORE (COnnecting REpositories), a public repository of open-access research papers. 
 The goal is to provide a more refined search experience than CORE [portal](https://core.ac.uk).
 It uses the [Okapi BM25](https://en.wikipedia.org/wiki/Okapi_BM25) ranking function to estimate the relevance of documents.
 End users can formulate queries based on a defined language, results are presented in order of relevance with title, abstract, and score.
 
 ## Architecture
 
-<!-- ### Store first-query later approach -->
+<!-- ### Store first and query later -->
 
 <img src="assets/diagram.png" alt="diagram" width="600"/>
 
@@ -26,7 +26,7 @@ End users can formulate queries based on a defined language, results are present
 
 ### Install required Python libraries
 ```
-pip3 install -r requirements.txt
+$ pip3 install -r requirements.txt
 ```
 ### Install NLTK data
 
@@ -40,18 +40,18 @@ nltk.download('averaged_perceptron_tagger')
 ```
 ### Setup environment
 ```
-sh setup_scripts/01.prepare_environment.sh 
+$ sh setup_scripts/01.prepare_environment.sh 
 ```
 ### Usage
 ```
-python3 src/scraping.py
-python3 src/preprocessing.py
-python3 src/indexing.py
-python3 src/queryprocessing.py
+$ python3 src/scraping.py
+$ python3 src/preprocessing.py
+$ python3 src/indexing.py
+$ python3 src/queryprocessing.py
 ```
 ### Evaluation
 ```
-python3 src/benchmarking.py
+$ python3 src/benchmarking.py
 ```
 
 ## Results
