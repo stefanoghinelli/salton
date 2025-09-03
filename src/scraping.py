@@ -5,6 +5,7 @@ import logging
 from typing import Optional, List, Callable
 from dataclasses import dataclass
 from lxml import html
+from .config import DATA_DIR
 
 logging.basicConfig(
     level=logging.INFO,
@@ -40,8 +41,10 @@ class CoreScraper:
         """
         url = f"{self.base_url}{page_number}"
         try:
+            logger.info(f"Fetching page {page_number}: {url}")
             response = requests.get(url, headers=self.headers, timeout=30)
             response.raise_for_status()
+            logger.info(f"Page {page_number} received, parsing...")
             tree = html.fromstring(response.content)
             
             results = []
@@ -74,6 +77,7 @@ class CoreScraper:
                     logger.error(f"Error extracting metadata: {str(e)}")
                     continue
             
+            logger.info(f"Found {len(results)} papers on page {page_number}")
             return results
             
         except Exception as e:
@@ -82,8 +86,11 @@ class CoreScraper:
     
     def download_document(self, metadata: PaperMetadata) -> Optional[bytes]:
         try:
+            logger.info(f"Downloading PDF: {metadata.title[:50]}...")
+            logger.info(f"PDF URL: {metadata.pdf_url}")
             response = requests.get(metadata.pdf_url, headers=self.headers, timeout=30)
             response.raise_for_status()
+            logger.info(f"PDF downloaded successfully: {len(response.content)} bytes")
             return response.content
         except Exception as e:
             logger.error(f"Error downloading {metadata.title}: {str(e)}")
@@ -95,8 +102,8 @@ def scrape_papers(limit: int = 100, progress_callback: Optional[Callable[[int], 
     """
     try:
         scraper = CoreScraper()
-        pdf_folder = "./data/pdf_downloads"
-        txt_folder = "./data/txt"
+        pdf_folder = os.path.join(DATA_DIR, "pdf_downloads")
+        txt_folder = os.path.join(DATA_DIR, "txt")
         
         os.makedirs(pdf_folder, exist_ok=True)
         os.makedirs(txt_folder, exist_ok=True)
@@ -105,15 +112,28 @@ def scrape_papers(limit: int = 100, progress_callback: Optional[Callable[[int], 
         current_page = 1
         
         while collected_count < limit:
+            logger.info(f"Trying page {current_page} (collected: {collected_count}/{limit})")
             papers = scraper.scrape_page(current_page)
             if not papers:
+                logger.warning(f"No papers found on page {current_page}, moving to next page")
                 current_page += 1
+                if current_page > 20:
+                    logger.error("Reached maximum page limit (20), stopping")
+                    break
                 continue
                 
             for paper in papers:
                 if collected_count >= limit:
                     break
                     
+                logger.info(f"Processing paper: {paper.title[:60]}...")
+                sanitized_title = re.sub(r'[\\/:"*?<>|]+', '', paper.title)
+                pdf_path = os.path.join(pdf_folder, f"{sanitized_title}.pdf")
+                
+                if os.path.exists(pdf_path):
+                    logger.info(f"Skipping existing paper: {paper.title[:50]}...")
+                    continue
+                
                 if content := scraper.download_document(paper):
                     try:
                         sanitized_title = re.sub(r'[\\/:"*?<>|]+', '', paper.title)
@@ -125,17 +145,22 @@ def scrape_papers(limit: int = 100, progress_callback: Optional[Callable[[int], 
                         with open(abstract_path, 'w', encoding='utf-8') as f:
                             f.write(paper.abstract or "*** Abstract not present ***")
                         
+                        url_path = os.path.join(txt_folder, f"{sanitized_title}_url.txt")
+                        with open(url_path, 'w', encoding='utf-8') as f:
+                            f.write(paper.pdf_url)
+                        
                         collected_count += 1
-                        logger.info(f"Collected paper {collected_count}/{limit}: {paper.title}")
                         
                         if progress_callback:
                             progress = int((collected_count / limit) * 100)
                             progress_callback(progress)
                         
                     except Exception as e:
-                        logger.error(f"Error saving {paper.title}: {str(e)}")
+                        logger.error(f"Error saving {paper.title[:50]}: {str(e)}")
                         continue
-            
+                else:
+                    logger.warning(f"Failed to download: {paper.title[:50]}...")
+
             current_page += 1
         
         logger.info(f"Successfully collected {collected_count} documents")

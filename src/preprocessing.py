@@ -1,14 +1,11 @@
 import os
-import sys
 import logging
-import pdftotext
+import PyPDF2
 from nltk import word_tokenize, pos_tag
-from nltk.corpus import wordnet
-from nltk.corpus import stopwords
+from nltk.corpus import wordnet, stopwords
 from nltk.stem import WordNetLemmatizer
-from typing import List, Optional, Dict, Tuple, Protocol, runtime_checkable, Callable
-from dataclasses import dataclass
-from abc import ABC, abstractmethod
+from typing import List, Optional, Callable, Tuple
+from .config import DATA_DIR
 
 logging.basicConfig(
     level=logging.INFO,
@@ -16,49 +13,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-@dataclass
-class ProcessedDocument:
-    """
-    Data class to hold processed document information
-    """
-    title: str
-    tokens: List[str]
-    raw_text: str
-    disambiguated_terms: Optional[List[Tuple[str, Optional[str]]]] = None
-
-@runtime_checkable
-class TextProcessor(Protocol):
-    """
-    Protocol defining the interface for text processors
-    """
-    
-    def process_text(self, text: str) -> List[str]:
-        ...
-
-class BaseDocumentProcessor(ABC):
-    """
-    Abstract base class for document processors
-    """
-    
-    @abstractmethod
-    def process_documents(self, progress_callback: Optional[Callable[[int], None]] = None) -> List[ProcessedDocument]:
-        pass
-    
-    @abstractmethod
-    def process_single_document(self, filename: str) -> Optional[ProcessedDocument]:
-        pass
-
-class NLTKTextProcessor:
-    """
-    NLTK-based text processor implementation
-    """
-    
+class TextProcessor:
     def __init__(self):
         self.stops = set(stopwords.words("english"))
         self.lemmatizer = WordNetLemmatizer()
     
     def process_text(self, text: str) -> List[str]:
-        """Process text using NLTK tokenization and lemmatization."""
         tokens = word_tokenize(text)
         return [
             self.lemmatizer.lemmatize(token.lower()) 
@@ -67,41 +27,28 @@ class NLTKTextProcessor:
         ]
 
 class WordSenseDisambiguator:
-    """
-    Class responsible for word sense disambiguation
-    """
-    
     def __init__(self):
         self._pos_map = {
             "J": wordnet.ADJ,
-            "V": wordnet.VERB,
+            "V": wordnet.VERB, 
             "N": wordnet.NOUN,
             "R": wordnet.ADV
         }
     
     def disambiguate(self, terms: List[str]) -> List[Tuple[str, Optional[str]]]:
-        """
-        Disambiguate a list of terms and return Synset names
-        """
         tagged_terms = pos_tag(terms)
         results = []
         
         for idx, (term, tag) in enumerate(tagged_terms):
             best_sense = self._find_best_sense(term, tag, tagged_terms, idx)
             results.append((term, best_sense.name() if best_sense else None))
-            self._log_disambiguation_result(term, best_sense)
         
         return results
     
-    def _find_best_sense(self, term: str, tag: str, 
-                         tagged_terms: List[Tuple[str, str]], 
-                         idx: int) -> Optional[wordnet.synsets]:
-        """
-        Find the best sense for a term based on context
-        """
+    def _find_best_sense(self, term: str, tag: str, tagged_terms: List[Tuple[str, str]], idx: int):
         best_sense = None
         max_score = 0.0
-        wordnet_pos = self._get_wordnet_pos(tag)
+        wordnet_pos = self._pos_map.get(tag[0], wordnet.NOUN)
         
         start = max(0, idx - 5)
         end = min(len(tagged_terms), idx + 6)
@@ -116,9 +63,6 @@ class WordSenseDisambiguator:
         return best_sense
     
     def _compute_context_score(self, sense, context_terms: List[str]) -> float:
-        """
-        Compute context similarity score
-        """
         return sum(
             max(
                 (similarity for context_sense in wordnet.synsets(context_term)
@@ -129,142 +73,84 @@ class WordSenseDisambiguator:
         )
     
     def _safe_similarity(self, sense1, sense2) -> Optional[float]:
-        """
-        Safely compute path similarity between two senses
-        """
         try:
             similarity = sense1.path_similarity(sense2)
             return similarity if similarity is not None else 0.0
         except Exception:
             return None
-    
-    def _get_wordnet_pos(self, treebank_tag: str) -> str:
-        """
-        Convert Penn Treebank POS tags to WordNet POS tags
-        """
-        return self._pos_map.get(treebank_tag[0], wordnet.NOUN)
-    
-    def _log_disambiguation_result(self, term: str, sense) -> None:
-        if sense:
-            logger.debug(f"Disambiguated '{term}' → {sense.name()} ({sense.definition()})")
-        else:
-            logger.debug(f"Could not disambiguate '{term}'")
 
-class PDFDocumentProcessor(BaseDocumentProcessor):
-    """
-    Class responsible for processing PDF documents
-    """
-    
-    def __init__(self, 
-                 src_folder: str = "./data/pdf_downloads/", 
-                 dst_folder: str = "./data/txt/",
-                 text_processor: Optional[TextProcessor] = None,
-                 use_disambiguation: bool = False):
-        """
-        Initialize the PDF document processor
-        """
-        self.src_folder = src_folder
-        self.dst_folder = dst_folder
-        self.text_processor = text_processor or NLTKTextProcessor()
+class PDFProcessor:
+    def __init__(self, use_disambiguation: bool = False):
+        self.pdf_folder = os.path.join(DATA_DIR, "pdf_downloads")
+        self.txt_folder = os.path.join(DATA_DIR, "txt")
+        self.text_processor = TextProcessor()
         self.disambiguator = WordSenseDisambiguator() if use_disambiguation else None
         
-        if not os.path.exists(dst_folder):
-            os.makedirs(dst_folder)
-            logger.info(f"Created destination directory: {dst_folder}")
+        os.makedirs(self.txt_folder, exist_ok=True)
     
-    def process_documents(self, progress_callback: Optional[Callable[[int], None]] = None) -> List[ProcessedDocument]:
-        """
-        Process all PDF documents in the source folder with progress
-        """
-        files = [f for f in os.listdir(self.src_folder) if f.endswith('.pdf')]
+    def process_all(self, progress_callback: Optional[Callable[[int], None]] = None) -> None:
+        files = [f for f in os.listdir(self.pdf_folder) if f.endswith('.pdf')]
         if not files:
-            logger.error("Source directory is empty")
-            raise ValueError("Source directory is empty")
+            logger.error("No PDF files found")
+            return
         
-        processed_docs = []
-        total_files = len(files)
+        processed_count = 0
         
-        for i, f_name in enumerate(files):
-            if doc := self.process_single_document(f_name):
-                processed_docs.append(doc)
-                self._save_tokens(doc)
+        for i, filename in enumerate(files):
+            if self._process_single_pdf(filename):
+                processed_count += 1
+                logger.info(f"Processed {processed_count}/{len(files)}: {filename}")
             
             if progress_callback:
-                progress = int((i + 1) / total_files * 100)
+                progress = int((i + 1) / len(files) * 100)
                 progress_callback(progress)
         
-        return processed_docs
+        logger.info(f"Completed: {processed_count} files processed")
     
-    def process_single_document(self, filename: str) -> Optional[ProcessedDocument]:
-        """
-        Process a single PDF document
-        """
-        raw_f_path = os.path.join(self.src_folder, filename)
-        logger.info(f"Processing file: {filename}")
+    def _process_single_pdf(self, filename: str) -> bool:
+        title = os.path.splitext(filename)[0]
+        tokens_file = os.path.join(self.txt_folder, f"{title}_tokens.txt")
+        
+        if os.path.exists(tokens_file):
+            logger.info(f"Skipping existing: {filename}")
+            return True
         
         try:
-            raw_text = self._extract_pdf_text(raw_f_path)
-            
-            tokens = self.text_processor.process_text(raw_text)
-            
-            title = os.path.splitext(filename)[0]
-            doc = ProcessedDocument(title=title, tokens=tokens, raw_text=raw_text)
+            pdf_path = os.path.join(self.pdf_folder, filename)
+            text = self._extract_pdf_text(pdf_path)
+            tokens = self.text_processor.process_text(text)
             
             if self.disambiguator:
-                doc.disambiguated_terms = self.disambiguator.disambiguate(tokens)
+                disambiguated_terms = self.disambiguator.disambiguate(tokens)
+                tokens = [term for term, sense in disambiguated_terms]
             
-            return doc
+            with open(tokens_file, 'w', encoding='utf-8') as f:
+                f.write('\n'.join(tokens))
+            
+            return True
             
         except Exception as e:
             logger.error(f"Error processing {filename}: {e}")
-            return None
+            return False
     
     def _extract_pdf_text(self, filepath: str) -> str:
-        """
-        Extract text from PDF file
-        """
-        with open(filepath, "rb") as f:
-            pdf = pdftotext.PDF(f)
-        return "\n\n".join(pdf)
-    
-    def _save_tokens(self, doc: ProcessedDocument) -> None:
-        """
-        Save processed tokens
-        """
-        tokens_file = os.path.join(self.dst_folder, f"{doc.title}_tokens.txt")
-        
         try:
-            with open(tokens_file, 'w', encoding='utf-8') as f:
-                f.write('\n'.join(doc.tokens))
-            logger.debug(f"Saved tokens to {tokens_file}")
-        except Exception as e:
-            logger.error(f"Error saving tokens for {doc.title}: {e}")
+            with open(filepath, "rb") as f:
+                pdf_reader = PyPDF2.PdfReader(f)
+                text = ""
+                for page in pdf_reader.pages:
+                    text += page.extract_text() + "\n\n"
+                return text
+        except (PyPDF2.errors.PdfReadError, EOFError) as e:
+            logger.warning(f"Corrupted PDF {filepath}: {str(e)}")
+            raise ValueError(f"Corrupted PDF file: {str(e)}")
 
 def preprocess_papers(progress_callback: Optional[Callable[[int], None]] = None, use_disambiguation: bool = False) -> None:
-    """
-    Process all papers in the download directory
-    
-    Args:
-        progress_callback: Optional callback for progress
-        use_disambiguation: Whether to use word sense disambiguation (default: False)
-    """
     try:
-        processor = PDFDocumentProcessor(
-            src_folder="./data/pdf_downloads",
-            dst_folder="./data/txt",
-            use_disambiguation=use_disambiguation
-        )
-        
-        processed_docs = processor.process_documents(progress_callback=progress_callback)
-        
-        if not processed_docs:
-            logger.warning("No documents were processed")
-            return
-            
-        logger.info(f"Successfully processed {len(processed_docs)} documents")
-        
+        processor = PDFProcessor(use_disambiguation=use_disambiguation)
+        processor.process_all(progress_callback=progress_callback)
     except Exception as e:
-        logger.error(f"Error during preprocessing: {str(e)}")
+        logger.error(f"Preprocessing failed: {str(e)}")
         raise
 
 if __name__ == "__main__":
