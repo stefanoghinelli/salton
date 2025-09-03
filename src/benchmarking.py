@@ -1,241 +1,219 @@
-import logging
-from typing import List, Dict, Optional, Protocol
-from dataclasses import dataclass
-from abc import ABC, abstractmethod
-from query_processing import WhooshSearchEngine, SearchResult
+import json
+import math
 import time
+from datetime import datetime
+from typing import List, Dict, Optional, Any
+from pathlib import Path
+from .config import BENCHMARK_DIR
+from .query_processing import process_query
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
-@dataclass
-class BenchmarkQuery:
-    natural_language: str
-    structured_query: str
-    expected_precision: float
-    expected_recall: float = 0.0
-    expected_relevant_docs: int = 0
-
-class QueryLoader(Protocol):
-    """
-    Protocol for query loading strategies
-    """
-    
-    def load_queries(self) -> List[BenchmarkQuery]:
-        ...
-
-class BenchmarkMetrics:
-    """
-    Class to hold and calculate benchmark metrics
-    """
-    
+class BenchmarkRunner:
     def __init__(self):
-        self.precisions: List[float] = []
-        self.recalls: List[float] = []
-        self.f1_scores: List[float] = []
-        self.query_times: List[float] = []
-        self.result_counts: List[int] = []
+        self.results_dir = Path("./evaluation/results")
+        self.results_dir.mkdir(parents=True, exist_ok=True)
     
-    def add_metrics(self, precision: float, recall: float, query_time: float, result_count: int) -> None:
-        self.precisions.append(precision)
-        self.recalls.append(recall)
-        f1 = 2 * (precision * recall) / (precision + recall) if precision + recall > 0 else 0.0
-        self.f1_scores.append(f1)
-        self.query_times.append(query_time)
-        self.result_counts.append(result_count)
-    
-    @property
-    def mean_average_precision(self) -> float:
+    def load_queries(self) -> List[Dict]:
         """
-        Calculate mean average precision
+        Load benchmark queries from structured text files
         """
-        return sum(self.precisions) / len(self.precisions) if self.precisions else 0.0
-    
-    @property
-    def mean_average_recall(self) -> float:
-        """
-        Calculate mean average recall
-        """
-        return sum(self.recalls) / len(self.recalls) if self.recalls else 0.0
-    
-    @property
-    def mean_f1_score(self) -> float:
-        """
-        Calculate mean F1 score
-        """
-        return sum(self.f1_scores) / len(self.f1_scores) if self.f1_scores else 0.0
-    
-    @property
-    def average_query_time(self) -> float:
-        """
-        Calculate average query time
-        """
-        return sum(self.query_times) / len(self.query_times) if self.query_times else 0.0
-    
-    @property
-    def average_result_count(self) -> float:
-        """
-        Calculate average number of results
-        """
-        return sum(self.result_counts) / len(self.result_counts) if self.result_counts else 0.0
-    
-    def __str__(self) -> str:
-        return (
-            f"Benchmark Results:\n"
-            f"  Mean Average Precision: {self.mean_average_precision:.3f}\n"
-            f"  Mean Average Recall: {self.mean_average_recall:.3f}\n"
-            f"  Mean F1 Score: {self.mean_f1_score:.3f}\n"
-            f"  Average Query Time: {self.average_query_time:.3f}s\n"
-            f"  Average Result Count: {self.average_result_count:.1f}"
-        )
-
-class FileSystemQueryLoader(QueryLoader):
-    def __init__(self, 
-                 natural_query_path: str = "./evaluation/query_natural_lang.txt",
-                 benchmark_query_path: str = "./evaluation/query_benchmark.txt",
-                 relevance_path: str = "./evaluation/query_relevance.txt"):
-        self.natural_query_path = natural_query_path
-        self.benchmark_query_path = benchmark_query_path
-        self.relevance_path = relevance_path
+        queries = []
+        benchmark_path = Path(BENCHMARK_DIR)
         
-    def load_queries(self) -> List[BenchmarkQuery]:
-        try:
-            natural_queries = self._read_lines(self.natural_query_path)
-            structured_queries = self._read_lines(self.benchmark_query_path)
-            relevance_data = self._load_relevance_data()
-            
-            queries = []
-            for i, (natural, structured) in enumerate(zip(natural_queries, structured_queries)):
-                relevance = relevance_data.get(i, {"precision": 0.0, "recall": 0.0, "relevant_docs": 0})
-                queries.append(
-                    BenchmarkQuery(
-                        natural_language=natural.strip(),
-                        structured_query=structured.strip(),
-                        expected_precision=relevance["precision"],
-                        expected_recall=relevance["recall"],
-                        expected_relevant_docs=relevance["relevant_docs"]
-                    )
-                )
+        natural_lang_file = benchmark_path / "query_natural_lang.txt"
+        benchmark_file = benchmark_path / "query_benchmark.txt" 
+        relevance_file = benchmark_path / "query_relevance.txt"
+        
+        if not all(f.exists() for f in [natural_lang_file, benchmark_file, relevance_file]):
             return queries
             
-        except Exception as e:
-            logger.error(f"Error loading queries: {str(e)}")
-            return []
-    
-    def _read_lines(self, filepath: str) -> List[str]:
-        with open(filepath, 'r', encoding='utf-8') as f:
-            return [line.strip() for line in f]
-    
-    def _load_relevance_data(self) -> Dict[int, Dict[str, float]]:
         try:
-            with open(self.relevance_path, 'r', encoding='utf-8') as f:
-                return {
-                    i: {
-                        "precision": float(parts[0]),
-                        "recall": float(parts[1]),
-                        "relevant_docs": int(parts[2])
-                    }
-                    for i, line in enumerate(f)
-                    if (parts := line.strip().split(','))
-                }
-        except FileNotFoundError:
-            logger.warning(f"Relevance file {self.relevance_path} not found. Using default values.")
-            return {}
+            with open(natural_lang_file) as f:
+                natural_queries = [line.strip() for line in f if line.strip() and not line.startswith('#')]
+            
+            with open(benchmark_file) as f:
+                structured_queries = [line.strip() for line in f if line.strip() and not line.startswith('#')]
+            
+            with open(relevance_file) as f:
+                relevance_data = []
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#'):
+                        precision, recall, relevant_docs = line.split(',')
+                        relevance_data.append({
+                            'expected_precision': float(precision),
+                            'expected_recall': float(recall), 
+                            'expected_relevant_docs': int(relevant_docs)
+                        })
+            
+            for i, (natural, structured, relevance) in enumerate(zip(natural_queries, structured_queries, relevance_data)):
+                queries.append({
+                    'natural_language': natural,
+                    'structured_query': structured,
+                    'query': natural,
+                    'expected_relevant_docs': relevance['expected_relevant_docs'],
+                    'expected_precision': relevance['expected_precision'],
+                    'expected_recall': relevance['expected_recall'],
+                    'limit': 10
+                })
+                
         except Exception as e:
-            logger.error(f"Error loading relevance data: {str(e)}")
-            return {}
-
-class SearchBenchmark:
-    """
-    Class responsible for running search benchmarks
-    """
+            print(f"Error loading query files: {e}")
+            
+        return queries
     
-    def __init__(self, 
-                 search_engine: WhooshSearchEngine,
-                 query_loader: QueryLoader):
-        self.search_engine = search_engine
-        self.query_loader = query_loader
-        self.metrics = BenchmarkMetrics()
+    def run_query(self, query: Dict) -> Dict:
+        """
+        Run a single benchmark query
+        """
+        query_text = query.get("natural_language", query.get("query", ""))
+        limit = query.get("limit", 10)
+        
+        start_time = time.time()
+        results = process_query(query_text, limit=limit)
+        total_time = time.time() - start_time
+        
+        return {
+            "query": query_text,
+            "query_data": query,
+            "results": results,
+            "total_time": total_time,
+            "timestamp": datetime.now().isoformat()
+        }
     
-    def run_benchmark(self) -> BenchmarkMetrics:
+    def compute_precision_recall(self, results: List[Dict], query_data: Dict) -> tuple[float, float]:
         """
-        Run the benchmark.
-        
-        Returns:
-            BenchmarkMetrics object containing results
+        Compute precision and recall using title-based relevance matching
         """
-        queries = self.query_loader.load_queries()
-        if not queries:
-            logger.error("No queries loaded for benchmark")
-            return self.metrics
+        if not results:
+            return 0.0, 0.0
         
-        logger.info("Starting benchmark")
-        for query in queries:
-            self._process_query(query)
+        query_text = query_data.get('natural_language', '').lower()
+        query_terms = set(query_text.split())
         
-        logger.info(f"Benchmark completed.\n{self.metrics}")
-        return self.metrics
-    
-    def _process_query(self, query: BenchmarkQuery) -> None:
-        """
-        Process a single benchmark query
-        """
-        try:
-            start_time = time.time()
-            
-            results = self.search_engine.search(query.structured_query, limit=10)
-            
-            query_time = time.time() - start_time
-            
-            num_results = len(results)
-            if query.expected_relevant_docs > 0:
-                actual_precision = num_results / query.expected_relevant_docs if num_results > 0 else 0.0
-                actual_recall = num_results / query.expected_relevant_docs
-            else:
-                actual_precision = query.expected_precision
-                actual_recall = 0.0
-            
-            self.metrics.add_metrics(
-                precision=actual_precision,
-                recall=actual_recall,
-                query_time=query_time,
-                result_count=num_results
-            )
-            
-            self._log_query_results(query, results, actual_precision, actual_recall, query_time)
-            
-        except Exception as e:
-            logger.error(f"Error processing query '{query.structured_query}': {str(e)}")
-    
-    def _log_query_results(self, query: BenchmarkQuery, results: List[SearchResult], 
-                          precision: float, recall: float, query_time: float) -> None:
-        logger.info(f"\nNatural query: {query.natural_language}")
-        logger.info(f"Executed query: {query.structured_query}")
-        logger.info(f"Results count: {len(results)}")
-        logger.info(f"Precision: {precision:.3f}")
-        logger.info(f"Recall: {recall:.3f}")
-        logger.info(f"Query time: {query_time:.3f}s")
-        
+        relevant_count = 0
         for result in results:
-            logger.debug(f"Title: {result.title}")
-            logger.debug(f"Score: {result.score}")
-            logger.debug("---")
-
-def main() -> None:
-    try:
-        search_engine = WhooshSearchEngine()
-        query_loader = FileSystemQueryLoader()
-        benchmark = SearchBenchmark(search_engine, query_loader)
+            title = result.get('title', '').lower()
+            title_terms = set(title.split())
+            
+            overlap = len(query_terms.intersection(title_terms))
+            if overlap >= min(2, len(query_terms) // 2):
+                relevant_count += 1
         
-        metrics = benchmark.run_benchmark()
-        logger.info(f"\nFinal Results:\n{metrics}")
+        expected_relevant = query_data.get('expected_relevant_docs', 10)
         
-    except Exception as e:
-        logger.error(f"Benchmark failed: {str(e)}")
-        raise
+        precision = relevant_count / len(results) if results else 0.0
+        recall = relevant_count / expected_relevant if expected_relevant > 0 else 0.0
+        
+        return precision, recall
+    
+    def compute_ndcg(self, results: List[Dict], query_data: Dict) -> float:
+        if not results:
+            return 0.0
+            
+        query_terms = set(query_data.get('natural_language', '').lower().split())
+        expected_relevant = query_data.get('expected_relevant_docs', 5)
+        
+        actual_gains = []
+        for result in results:
+            title_terms = set(result.get('title', '').lower().split())
+            overlap = len(query_terms.intersection(title_terms))
+            gain = min(overlap / len(query_terms) if query_terms else 0, 1.0)
+            actual_gains.append(gain)
+        
+        dcg = sum(gain / math.log2(i + 2) for i, gain in enumerate(actual_gains))
+        
+        ideal_gains = [1.0] * min(expected_relevant, len(results)) + [0.0] * max(0, len(results) - expected_relevant)
+        idcg = sum(gain / math.log2(i + 2) for i, gain in enumerate(ideal_gains))
+        
+        return dcg / idcg if idcg > 0 else 0.0
+    
+    def compute_map(self, results: List[Dict], query_data: Dict) -> float:
+        if not results:
+            return 0.0
+            
+        query_terms = set(query_data.get('natural_language', '').lower().split())
+        
+        precisions_at_relevant = []
+        relevant_found = 0
+        
+        for i, result in enumerate(results, 1):
+            title_terms = set(result.get('title', '').lower().split())
+            overlap = len(query_terms.intersection(title_terms))
+            
+            if overlap >= max(1, len(query_terms) // 3):
+                relevant_found += 1
+                precisions_at_relevant.append(relevant_found / i)
+        
+        return sum(precisions_at_relevant) / len(precisions_at_relevant) if precisions_at_relevant else 0.0
+    
+    def evaluate_result(self, benchmark_result: Dict) -> Dict:
+        """
+        Evaluate a single benchmark result
+        """
+        results = benchmark_result["results"]
+        query_data = benchmark_result["query_data"]
+        
+        precision, recall = self.compute_precision_recall(results, query_data)
+        ndcg = self.compute_ndcg(results, query_data)
+        map_score = self.compute_map(results, query_data)
+        
+        return {
+            "precision": precision,
+            "recall": recall,
+            "ndcg": ndcg,
+            "map": map_score,
+            "execution_time": benchmark_result["total_time"],
+            "result_count": len(results)
+        }
+    
+    def save_results(self, raw_results: List[Dict], metrics: Dict[str, Dict]) -> None:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        raw_output = self.results_dir / f"raw_results_{timestamp}.json"
+        with open(raw_output, "w") as f:
+            json.dump({
+                "timestamp": timestamp,
+                "results": raw_results
+            }, f, indent=2)
+        
+        metrics_output = self.results_dir / f"metrics_{timestamp}.json"
+        with open(metrics_output, "w") as f:
+            json.dump({
+                "timestamp": timestamp,
+                "metrics": metrics
+            }, f, indent=2)
+    
+    def run_benchmark(self, save_results: bool = True, progress_callback: Optional[Any] = None) -> Dict[str, Dict]:
+        queries = self.load_queries()
+        if not queries:
+            raise ValueError("No benchmark queries found")
+        
+        raw_results = []
+        total_queries = len(queries)
+        
+        for i, query in enumerate(queries):
+            try:
+                result = self.run_query(query)
+                raw_results.append(result)
+                
+                if progress_callback:
+                    progress = int((i + 1) / total_queries * 100)
+                    progress_callback(progress)
+                    
+            except Exception as e:
+                print(f"Error running query '{query.get('natural_language', 'unknown')}': {e}")
+                continue
+        
+        metrics = {}
+        for result in raw_results:
+            query_text = result["query"]
+            metrics[query_text] = self.evaluate_result(result)
+        
+        if save_results:
+            self.save_results(raw_results, metrics)
+        
+        return metrics
 
-if __name__ == '__main__':
-    main()
+def run_benchmark(save_results: bool = True, progress_callback: Optional[Any] = None) -> Dict[str, Dict]:
+    runner = BenchmarkRunner()
+    return runner.run_benchmark(save_results=save_results, progress_callback=progress_callback)
