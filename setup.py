@@ -7,8 +7,8 @@ setup(
     install_requires=[
         "Whoosh==2.7.4",
         "nltk==3.8.1",
-        "pdftotext==3.0.0",
-        "lxml==4.9.3",
+        "PyPDF2>=3.0.0",
+        "lxml>=5.0.0",
         "requests==2.31.0",
         "click==8.1.7",
     ],
