@@ -1,8 +1,12 @@
-# Natural language queries for benchmarking
-# Format: One query per line
+# Natural language queries for distributed computing benchmarking
 
-information retrieval systems
-machine learning applications
-cloud computing architectures
-neural networks in nlp
-distributed systems design 
+federated learning heterogeneous clients
+GPU acceleration distributed computing
+microservice scheduling cloud edge
+LLM inference resource management
+distributed graph algorithms parallel processing
+memory disaggregation CXL systems
+Byzantine fault tolerance consensus
+energy efficient distributed systems
+resource allocation heterogeneous clusters
+parallel algorithms HPC workloads

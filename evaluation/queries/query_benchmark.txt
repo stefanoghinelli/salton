@@ -1,8 +1,12 @@
-# Structured queries for benchmarking
-# Format: One query per line
+# Structured queries for distributed computing benchmarking
 
-title:information AND (abstract:retrieval OR content:systems)
-title:machine AND abstract:learning AND content:applications
-title:cloud AND (abstract:computing OR content:architectures)
-(title:neural OR abstract:networks) AND content:nlp
-title:distributed AND abstract:systems AND content:design 
+(title:federated OR abstract:federated) AND (content:learning OR content:heterogeneous)
+title:GPU AND (abstract:acceleration OR abstract:parallel) AND content:distributed
+(title:microservice OR title:scheduling) AND abstract:cloud AND content:edge
+title:LLM AND abstract:inference AND (content:resource OR content:management)
+(title:distributed OR title:parallel) AND abstract:graph AND content:algorithm
+(title:memory OR title:CXL) AND abstract:disaggregation AND content:distributed
+(title:Byzantine OR title:consensus) AND abstract:fault AND content:tolerance
+title:energy AND (abstract:efficient OR abstract:power) AND content:distributed
+(title:resource OR title:scheduling) AND abstract:allocation AND content:heterogeneous
+title:parallel AND abstract:algorithm AND (content:HPC OR content:performance)
