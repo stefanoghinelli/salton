@@ -24,12 +24,12 @@ class WhooshSearchEngine:
     def __init__(self):
         self.index = index.open_dir(INDEX_DIR)
         self._searcher = None
-    
+
     @property
     def searcher(self):
         if self._searcher is None:
             self._searcher = self.index.searcher(
-                weighting=scoring.BM25F(B=0.75, content_B=1.0, K1=1.2)
+                weighting=scoring.BM25F(K1=1.5, B=0.75)
             )
         return self._searcher
     
@@ -39,15 +39,19 @@ class WhooshSearchEngine:
     
     def search(self, query: str, limit: int = 5) -> List[SearchResult]:
         query = query.lower()
-        
+
         try:
             query_group = AndGroup if re.search(r'\bAND\b', query, re.IGNORECASE) else OrGroup
-            parser = MultifieldParser(["title", "abstract", "content"], 
-                                    schema=self.searcher.schema, 
-                                    group=query_group)
+            parser = MultifieldParser(
+                ["title", "abstract", "content"],
+                schema=self.searcher.schema,
+                fieldboosts={'title': 3.0, 'abstract': 1.5, 'content': 1.0},
+                group=query_group
+            )
             whoosh_query = parser.parse(query)
-            results = self.searcher.search(whoosh_query, limit=limit)
-            
+
+            results = self.searcher.search(whoosh_query, limit=limit * 2)
+
             return [
                 SearchResult(
                     title=r["title"],
@@ -56,7 +60,7 @@ class WhooshSearchEngine:
                     rank=r.rank,
                     portal_url=r.get("portal_url", "")
                 )
-                for r in results
+                for r in results[:limit]
             ]
             
         except Exception as e:
@@ -66,18 +70,22 @@ class WhooshSearchEngine:
     def suggest_correction(self, query: str) -> Optional[str]:
         try:
             query_group = AndGroup if re.search(r'\bAND\b', query, re.IGNORECASE) else OrGroup
-            parser = MultifieldParser(["title", "abstract", "content"], 
-                                    schema=self.searcher.schema, 
-                                    group=query_group)
+            parser = MultifieldParser(
+                ["title", "abstract", "content"],
+                schema=self.searcher.schema,
+                fieldboosts={'title': 3.0, 'abstract': 1.5, 'content': 1.0},
+                group=query_group
+            )
             whoosh_query = parser.parse(query.lower())
             corrected = self.searcher.correct_query(whoosh_query, query.lower())
-            
+
             if corrected.query != whoosh_query:
+                logger.info(f"Suggested correction: '{query}' -> '{corrected.string}'")
                 return corrected.string
-                
+
         except Exception as e:
             logger.error(f"Correction suggestion error: {str(e)}")
-        
+
         return None
 
 def process_query(query: str, limit: int = 10) -> List[Dict]:

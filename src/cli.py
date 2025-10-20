@@ -1,14 +1,13 @@
 import time
 import click
 from pathlib import Path
-from typing import Callable
 import nltk
 from nltk.tokenize import sent_tokenize
 from nltk.corpus import stopwords
 from collections import Counter
 import string
 
-from .config import DATA_DIR, BENCHMARK_DIR, INDEX_DIR
+from .config import INDEX_DIR, BENCHMARK_DIR
 
 class OrderedGroup(click.Group):
     def __init__(self, name=None, commands=None, **attrs):
@@ -16,11 +15,10 @@ class OrderedGroup(click.Group):
         self.commands = commands or {}
         self.command_order = [
             'fetch',
-            'preprocess',
             'index',
             'search',
-            'stats',
-            'benchmark'
+            'benchmark',
+            'mark-relevance'
         ]
 
     def list_commands(self, ctx):
@@ -73,17 +71,30 @@ def cli():
 
 @cli.command()
 @click.option('--limit', '-l', default=100, help='Number of papers to fetch')
-def fetch(limit: int):
+@click.option('--source', '-s', default='arxiv', type=click.Choice(['arxiv', 'core']))
+@click.option(
+    '--category',
+    '-c',
+    default='cs.DC'
+)
+def fetch(limit: int, source: str, category: str):
     """
-    Fetch papers from CORE repository
+    Fetch papers from arXiv or CORE
     """
     try:
-        from .scraping import scrape_papers
-        
-        print_header("Fetching Papers")
-        
-        scrape_papers(limit)
-            
+        print_header(f"Fetching Cloud/Distributed Papers from {source.upper()}")
+
+        if source == 'arxiv':
+            from .arxiv_fetcher import fetch_papers as fetch_papers_arxiv
+            click.echo(f"Category: {category}")
+            click.echo(f"Fetching {limit} papers...\n")
+            if category.lower() == 'cs.ai':
+                click.echo("Tip: Try cs.DC, cs.NI, or cs.PF for distributed/cloud systems.\n")
+            fetch_papers_arxiv(limit, category=category)
+        else:
+            from .core_fetcher import fetch_papers as fetch_papers_core
+            fetch_papers_core(limit)
+
     except ImportError as e:
         click.echo(f"\nError: Missing dependencies for fetching papers. {str(e)}")
         click.echo("Please install the required dependencies: pip install requests lxml")
@@ -91,45 +102,25 @@ def fetch(limit: int):
         click.echo(f"\nError fetching papers: {str(e)}")
 
 @cli.command()
-@click.option('--wsd', is_flag=True, help='Enable Word Sense Disambiguation')
-def preprocess(wsd):
-    """
-    Tokenize, lemmatize, remove stopwords
-    """
-    try:
-        from .preprocessing import preprocess_papers
-        
-        print_header("Preprocessing Papers")
-        
-        preprocess_papers(use_disambiguation=wsd)
-            
-    except Exception as e:
-        click.echo(f"\nError preprocessing papers: {str(e)}")
-
-@cli.command()
 def index():
     """
-    Build the index
+    Build the search index using lemmatization
     """
     try:
-        from .indexing import build_index
         import shutil
         import os
-        
-        print_header("Indexing Papers")
-        
-        # Remove the existing one to avoid duplications
+
+        print_header("Indexing Papers with Lemmatization")
+
         if os.path.exists(INDEX_DIR):
             click.echo("Removing existing index...")
             shutil.rmtree(INDEX_DIR)
-            click.echo("Index removed.")
-        
-        with click.progressbar(length=100, label='Indexing papers') as bar:
-            def progress_callback(percent):
-                bar.update(percent - bar.pos)
-            
-            build_index(progress_callback)
-            
+            click.echo("Index removed")
+
+        from .indexing import build_index
+
+        build_index()
+
     except Exception as e:
         click.echo(f"\nError indexing papers: {str(e)}")
 
@@ -141,14 +132,23 @@ def search(query: str, limit: int):
     Query papers by keyword
     """
     try:
-        from .query_processing import process_query
+        from .querier import process_query
         
         print_header(f"Results for: {query}")
         
         results = process_query(query, limit)
         
         if not results:
-            click.echo("No results found.")
+            try:
+                from .querier import WhooshSearchEngine
+                engine = WhooshSearchEngine()
+                suggestion = engine.suggest_correction(query)
+                if suggestion and suggestion.lower() != query.lower():
+                    click.echo(f"No results found. Did you mean: '{suggestion}'?")
+                else:
+                    click.echo("No results found")
+            except Exception:
+                click.echo("No results found")
             return
             
         for i, result in enumerate(results, 1):
@@ -168,109 +168,133 @@ def search(query: str, limit: int):
         click.echo(f"\nError searching: {str(e)}")
 
 @cli.command()
-def stats():
+def benchmark():
     """
-    Show statistics
+    Run evaluation benchmarks
     """
     try:
-        from .indexing import get_index_stats
-        
-        print_header("Statistics")
-        
-        try:
-            index_stats = get_index_stats()
-            
-            click.echo("Index statistics:")
-            click.echo(f"-Documents indexed: {index_stats['doc_count']}")
-            click.echo(f"-Unique terms: {index_stats['unique_terms']}")
-            click.echo(f"-Index size: {index_stats['index_size_mb']:.2f} MB")
-        except Exception as e:
-            click.echo("Index statistics:")
-            click.echo(f"-Error retrieving index statistics: {str(e)}")
-        
-        data_dir = Path(DATA_DIR)
-        pdf_dir = data_dir / "pdf_downloads"
-        txt_dir = data_dir / "txt"
-        
-        raw_count = len(list(pdf_dir.glob("*.pdf"))) if pdf_dir.exists() else 0
-        processed_count = len(list(txt_dir.glob("*_tokens.txt"))) if txt_dir.exists() else 0
-        
-        click.echo("\nData statistics:")
-        click.echo(f"-Raw papers: {raw_count}")
-        click.echo(f"-Processed papers: {processed_count}")
-        
-        benchmark_dir = Path(BENCHMARK_DIR)
-        query_sets = len(list(benchmark_dir.glob("query_*.txt"))) if benchmark_dir.exists() else 0
-        
-        click.echo("\nBenchmark statistics:")
-        click.echo(f"-Available query sets: {query_sets}")
-        
-    except Exception as e:
-        click.echo(f"\nError getting stats: {str(e)}")
+        print_header("Running Benchmarks")
 
-@cli.command()
-@click.option('--save/--no-save', default=True, help='Save benchmark results to file')
-@click.option('--detailed/--simple', default=False, help='Show detailed results')
-def benchmark(save: bool, detailed: bool):
-    """
-    Run benchmarks
-    """
-    try:
-        print_header("Running benchmarks")
-        
-        try:
-            from .benchmarking import run_benchmark
-        except ImportError as e:
-            click.echo(f"\nError: Missing dependencies for benchmarking. {str(e)}")
-            return
-        
-        def progress_callback(percent):
-            if hasattr(progress_callback, 'bar'):
-                progress_callback.bar.update(percent - progress_callback.bar.pos)
-        
-        with click.progressbar(length=100, label='Running benchmarks') as bar:
-            progress_callback.bar = bar
-            
-            try:
-                results = run_benchmark(save_results=save, progress_callback=progress_callback)
-            except ValueError as e:
-                click.echo(f"\nError: {str(e)}")
-                return
-            except Exception as e:
-                click.echo(f"\nError during benchmark: {str(e)}")
-                return
-            
-        click.echo("\nBenchmark completed!")
-        
+        from .benchmarking import run_benchmark
+
+        results = run_benchmark(save_results=True, query_set="default")
+
         if not results:
-            click.echo("No results to display.")
+            click.echo("No results to display. Check that query files exist in evaluation/queries/")
             return
-            
-        if detailed:
-            click.echo("\nDetailed Results:\n")
-            for query, metrics in results.items():
-                click.echo(f"Query: {query}")
-                click.echo(f"  Precision: {metrics['precision']:.4f}")
-                click.echo(f"  Recall: {metrics['recall']:.4f}")
-                click.echo(f"  NDCG: {metrics['ndcg']:.4f}")
-                click.echo(f"  MAP: {metrics['map']:.4f}")
-                click.echo(f"  Execution Time: {metrics['execution_time']:.4f}s")
-                click.echo(f"  Result Count: {metrics['result_count']}")
-                click.echo("")
-        else:
-            click.echo("\nSummary Results:\n")
-            avg_precision = sum(m['precision'] for m in results.values()) / len(results) if results else 0
-            avg_recall = sum(m['recall'] for m in results.values()) / len(results) if results else 0
-            avg_ndcg = sum(m['ndcg'] for m in results.values()) / len(results) if results else 0
-            avg_map = sum(m['map'] for m in results.values()) / len(results) if results else 0
-            
-            click.echo(f"Average Precision: {avg_precision:.4f}")
-            click.echo(f"Average Recall: {avg_recall:.4f}")
-            click.echo(f"Average NDCG: {avg_ndcg:.4f}")
-            click.echo(f"Average MAP: {avg_map:.4f}")
-            
+
+        for query, metrics in results.items():
+            click.echo(f"Query: {query}")
+            click.echo(f"  Precision: {metrics['precision']:.4f}")
+            click.echo(f"  Recall: {metrics['recall']:.4f}")
+            click.echo(f"  NDCG: {metrics['ndcg']:.4f}")
+            click.echo(f"  MAP: {metrics['map']:.4f}")
+            click.echo(f"  Execution Time: {metrics['execution_time']:.4f}s")
+            click.echo(f"  Result Count: {metrics['result_count']}")
+            click.echo("")
+
     except Exception as e:
         click.echo(f"\nError running benchmark: {str(e)}")
+        import traceback
+        traceback.print_exc()
+
+@cli.command(name='mark-relevance')
+def mark_relevance():
+    """
+    Manually mark relevant papers for benchmark judgments
+    """
+    try:
+        print_header("Mark relevance judgments")
+
+        from .querier import process_query
+
+        queries_file = Path(BENCHMARK_DIR) / "query_natural_lang.txt"
+        if not queries_file.exists():
+            click.echo("Error: query_natural_lang.txt not found")
+            return
+
+        with open(queries_file) as f:
+            queries = [line.strip() for line in f if line.strip() and not line.startswith('#')]
+
+        click.echo(f"Found {len(queries)} queries to evaluate\n")
+        click.echo("For each query, you'll see the top 20 results")
+        click.echo("Mark relevant papers by entering their numbers (e.g., '1 3 5' or '1-5')\n")
+
+        relevance_data = []
+
+        for i, query in enumerate(queries, 1):
+            click.echo(f"\n{'='*70}")
+            click.echo(f"Query {i}/{len(queries)}: {query}")
+            click.echo('='*70)
+
+            results = process_query(query, limit=20)
+
+            if not results:
+                click.echo("No results found for this query")
+                relevance_data.append([])
+                continue
+
+            for j, result in enumerate(results, 1):
+                click.echo(f"\n{j}. {result['title']}")
+                click.echo(f"   Score: {result['score']:.2f}")
+                if result.get('abstract'):
+                    abstract_preview = result['abstract'][:150] + "..." if len(result['abstract']) > 150 else result['abstract']
+                    click.echo(f"   {abstract_preview}")
+
+            click.echo(f"\n{'='*70}")
+            relevant_input = click.prompt(
+                "Enter relevant paper numbers (e.g., '1 3 5' or '1-5'), or press Enter to skip",
+                default="",
+                show_default=False
+            )
+
+            relevant_titles = []
+            if relevant_input.strip():
+                try:
+                    numbers = set()
+                    for part in relevant_input.split():
+                        if '-' in part:
+                            start, end = part.split('-')
+                            numbers.update(range(int(start), int(end) + 1))
+                        else:
+                            numbers.add(int(part))
+
+                    for num in sorted(numbers):
+                        if 1 <= num <= len(results):
+                            relevant_titles.append(results[num-1]['title'])
+                        else:
+                            click.echo(f"Warning: {num} is out of range, ignoring")
+
+                    click.echo(f"Marked {len(relevant_titles)} papers as relevant")
+                except Exception as e:
+                    click.echo(f"Error parsing input: {e}")
+            else:
+                click.echo("No papers marked as relevant")
+
+            relevance_data.append(relevant_titles)
+
+        output_file = Path(BENCHMARK_DIR) / "query_relevance.txt"
+        with open(output_file, 'w') as f:
+            f.write("# Relevance judgments for benchmark queries\n")
+            f.write("# Format: query_index|relevant_paper_title_1|relevant_paper_title_2|...\n")
+
+            for i, (query, titles) in enumerate(zip(queries, relevance_data), 1):
+                if titles:
+                    titles_str = "|".join(titles)
+                    f.write(f"{i}|{titles_str}\n")
+                else:
+                    f.write(f"{i}|\n")
+
+        click.echo(f"\n{'='*70}")
+        click.echo(f"  Saved relevance judgments to {output_file}")
+        click.echo(f"  Total queries: {len(queries)}")
+        click.echo(f"  Queries with relevance judgments: {sum(1 for r in relevance_data if r)}")
+        click.echo(f"\nYou can now run benchmark cmd")
+
+    except Exception as e:
+        click.echo(f"\nError: {str(e)}")
+        import traceback
+        traceback.print_exc()
 
 def main():
     cli()

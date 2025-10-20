@@ -2,7 +2,7 @@ import requests
 import os
 import re
 import logging
-from typing import Optional, List, Callable
+from typing import Optional, List
 from dataclasses import dataclass
 from lxml import html
 from .config import DATA_DIR
@@ -22,11 +22,10 @@ class PaperMetadata:
     abstract: str
     pdf_url: str
 
-class CoreScraper:
+class CoreFetcher:
     """
-    Scraper for core.ac.uk
+    HTML scraper for core.ac.uk (fallback source)
     """
-    
     def __init__(self):
         self.base_url = 'https://core.ac.uk/search?q=fieldsOfStudy%3A%22computer+science%22&page='
         self.headers = {
@@ -35,9 +34,9 @@ class CoreScraper:
             'Accept-Language': 'en-US,en;q=0.5'
         }
     
-    def scrape_page(self, page_number: int) -> List[PaperMetadata]:
+    def fetch_page(self, page_number: int) -> List[PaperMetadata]:
         """
-        Scrape a single page from core.ac.uk
+        Scrape a single page from core.ac.uk.
         """
         url = f"{self.base_url}{page_number}"
         try:
@@ -96,12 +95,12 @@ class CoreScraper:
             logger.error(f"Error downloading {metadata.title}: {str(e)}")
             return None
 
-def scrape_papers(limit: int = 100, progress_callback: Optional[Callable[[int], None]] = None) -> None:
+def fetch_papers(limit: int = 100) -> None:
     """
-    Scrape papers from CORE
+    Scrape papers from core.ac.uk
     """
     try:
-        scraper = CoreScraper()
+        fetcher = CoreFetcher()
         pdf_folder = os.path.join(DATA_DIR, "pdf_downloads")
         txt_folder = os.path.join(DATA_DIR, "txt")
         
@@ -113,7 +112,7 @@ def scrape_papers(limit: int = 100, progress_callback: Optional[Callable[[int], 
         
         while collected_count < limit:
             logger.info(f"Trying page {current_page} (collected: {collected_count}/{limit})")
-            papers = scraper.scrape_page(current_page)
+            papers = fetcher.fetch_page(current_page)
             if not papers:
                 logger.warning(f"No papers found on page {current_page}, moving to next page")
                 current_page += 1
@@ -134,7 +133,7 @@ def scrape_papers(limit: int = 100, progress_callback: Optional[Callable[[int], 
                     logger.info(f"Skipping existing paper: {paper.title[:50]}...")
                     continue
                 
-                if content := scraper.download_document(paper):
+                if content := fetcher.download_document(paper):
                     try:
                         sanitized_title = re.sub(r'[\\/:"*?<>|]+', '', paper.title)
                         pdf_path = os.path.join(pdf_folder, f"{sanitized_title}.pdf")
@@ -151,10 +150,6 @@ def scrape_papers(limit: int = 100, progress_callback: Optional[Callable[[int], 
                         
                         collected_count += 1
                         
-                        if progress_callback:
-                            progress = int((collected_count / limit) * 100)
-                            progress_callback(progress)
-                        
                     except Exception as e:
                         logger.error(f"Error saving {paper.title[:50]}: {str(e)}")
                         continue
@@ -170,4 +165,4 @@ def scrape_papers(limit: int = 100, progress_callback: Optional[Callable[[int], 
         raise
 
 if __name__ == '__main__':
-    scrape_papers(100)
+    fetch_papers(100)
