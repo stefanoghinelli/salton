@@ -25,7 +25,7 @@ class Indexer:
         self.txt_folder = os.path.join(DATA_DIR, "txt")
         self.index_dir = INDEX_DIR
 
-        analyzer = LemmatizingAnalyzer(use_pos=False, apply_stemming=False)
+        analyzer = LemmatizingAnalyzer(use_pos=False, apply_stemming=True)
 
         self.schema = Schema(
             title=TEXT(stored=True, analyzer=analyzer, spelling=True),
