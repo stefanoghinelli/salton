@@ -16,11 +16,11 @@ logger = logging.getLogger(__name__)
 
 class Indexer:
     """
-    Whoosh indexer using lemmatization
+    Whoosh indexer
     """
     def __init__(self):
         """
-        Initialize indexer with lemmatization-based analysis
+        Initialize indexer with lemmatization and stemming
         """
         self.txt_folder = os.path.join(DATA_DIR, "txt")
         self.index_dir = INDEX_DIR
@@ -83,7 +83,7 @@ class Indexer:
 
     def index_documents(self) -> int:
         """
-        Index all documents using lemmatization
+        Index all documents
         """
         files = [f for f in os.listdir(self.txt_folder) if f.endswith('.txt')]
         if not files:
@@ -114,10 +114,10 @@ class Indexer:
 
 def build_index() -> None:
     """
-    Build search index using lemmatization
+    Build search index
     """
     try:
-        logger.info("Building index with lemmatization")
+        logger.info("Building index")
         indexer = Indexer()
         num_indexed = indexer.index_documents()
         logger.info(f"Indexing completed: {num_indexed} documents")
