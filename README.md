@@ -1,7 +1,7 @@
 # [salton](https://en.wikipedia.org/wiki/Gerard_Salton)
 
 Salton is a vertical search engine built on a corpus of documents sourced from [arXiv](https://arxiv.org) and [CORE](https://core.ac.uk), public repositories of open-access research papers.
-It uses the [Okapi BM25F](https://en.wikipedia.org/wiki/Okapi_BM25) ranking function with field boosting to estimate document relevance and an NLTK-based lemmatization for linguistic accuracy.
+It uses the [Okapi BM25](https://en.wikipedia.org/wiki/Okapi_BM25) ranking function with field boosting to estimate document relevance and an NLTK-based lemmatization for linguistic accuracy.
 End users can formulate natural language queries and results are ranked by relevance with title, score, URL, and abstract summary.
 
 ## Running the project
@@ -39,13 +39,6 @@ To fetch papers on arXiv:
 $ salton fetch -l [number of papers] --source arxiv --category cs.DC
 ```
 
-Available categories for distributed computing/HPC:
-- cs.DC: Distributed, Parallel, and Cluster Computing
-- cs.NI: Networking and Internet Architecture
-- cs.PF: Performance
-- cs.AI: Artificial Intelligence
-- cs.LG: Machine Learning
-
 Or fetch from CORE:
 
 ```bash
@@ -82,10 +75,10 @@ Check out the [evaluation guide](./evaluation/EVAL.md) for how to interpret the 
 ## Example results
 
 ```bash
-salton search -q "distributed microservice scheduling" -l 3
+salton search -q "distributed microservices scheduling" -l 3
 
 ==================================================
-  Results for: distributed microservice scheduling
+  Results for: distributed microservices scheduling
 ==================================================
 
 1. Title: A Decentralized Microservice Scheduling Approach Using Service Mesh in Cloud-Edge Systems
