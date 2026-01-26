@@ -75,7 +75,7 @@ Check out the [evaluation guide](./evaluation/EVAL.md) for how to interpret the 
 ## Example results
 
 ```bash
-salton search -q "distributed microservices scheduling" -l 3
+$ salton search -q "distributed microservices scheduling" -l 3
 
 ==================================================
   Results for: distributed microservices scheduling
